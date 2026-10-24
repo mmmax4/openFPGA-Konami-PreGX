@@ -14,9 +14,12 @@ currently playable.** The other games below are development goals.
   <img src="docs/images/mystic-warriors-title.png" height="224" alt="Mystic Warriors title captured on Analogue Pocket">
 </p>
 
-**Maintainer request:** please share this port free of charge and use it for
-noncommercial purposes. This is separate from the existing software licenses;
-see [the request and its limits](NONCOMMERCIAL_REQUEST.md).
+**License:** [GNU GPLv3](LICENSE) for the applicable project code. Original
+third-party licenses and notices remain in effect; see [licensing](LICENSING.md).
+
+Some inherited Analogizer dependencies have noncommercial terms. These are
+component-specific terms, preserved separately from the project's GPL license.
+See [inherited dependency terms](LICENSING.md#inherited-noncommercial-terms).
 
 ## Game support
 

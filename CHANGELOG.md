@@ -4,8 +4,8 @@
 
 This version uses the unchanged M2 Pocket04 hardware tested on Pocket. The
 public release is pending resolution of inherited Analogizer controller terms
-alongside GPL components; the maintainer's noncommercial request does not
-resolve that compatibility question.
+alongside GPL components. The project retains its GPL license and the original
+component-specific notices.
 
 - Playable: **Gaiapolis (ver EAF)** and **Mystic Warriors (ver EAA)**, selected
   through one shared menu. Other family games remain planned; Violent Storm is next.
