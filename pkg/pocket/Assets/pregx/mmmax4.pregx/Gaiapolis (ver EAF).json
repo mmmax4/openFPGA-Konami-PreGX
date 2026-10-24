@@ -1,0 +1,21 @@
+{
+  "instance": {
+    "magic": "APF_VER_1",
+    "data_path": "",
+    "data_slots": [
+      {
+        "id": 1,
+        "filename": "gaiapols.rom"
+      },
+      {
+        "id": 2,
+        "filename": "gaiapols.sav"
+      }
+    ],
+    "memory_writes": [],
+    "core_select": {
+      "id": 0,
+      "select": false
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "instance": {
+    "magic": "APF_VER_1",
+    "data_path": "",
+    "data_slots": [
+      {
+        "id": 1,
+        "filename": "mystwarr.rom"
+      },
+      {
+        "id": 2,
+        "filename": "mystwarr.sav"
+      }
+    ],
+    "memory_writes": [],
+    "core_select": {
+      "id": 0,
+      "select": false
+    }
+  }
+}

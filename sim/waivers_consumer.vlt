@@ -1,0 +1,4 @@
+`verilator_config
+// core_top.sv intentionally initializes its video toggle at FPGA power-up.
+// The consumer extraction retains the original initialization and clocked write.
+lint_off -rule PROCASSINIT -file "*sim/source_consumers.sv" -match "*vt*"

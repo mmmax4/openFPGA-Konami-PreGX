@@ -1,0 +1,116 @@
+{
+  "core_id": "mmmax4.pregx",
+  "platform_id": "pregx",
+  "mame_commit": "76af2d6d907f0df822dca1d5146454cc5ee18294",
+  "profiles": [
+    {
+      "id": 0,
+      "set": "gaiapols",
+      "title": "Gaiapolis (ver EAF)",
+      "save_filename": "gaiapols.sav",
+      "rom_verified": true,
+      "implementation": "m2_private_candidate",
+      "visible_raster": [
+        376,
+        224
+      ],
+      "visible_origin": [
+        40,
+        16
+      ],
+      "rotation": 90,
+      "status": "playable_development"
+    },
+    {
+      "id": 1,
+      "set": "mystwarr",
+      "title": "Mystic Warriors (ver EAA)",
+      "save_filename": "mystwarr.sav",
+      "rom_verified": true,
+      "implementation": "m2_private_candidate",
+      "visible_raster": [
+        288,
+        224
+      ],
+      "visible_origin": [
+        24,
+        16
+      ],
+      "rotation": 0,
+      "status": "playable_development"
+    },
+    {
+      "id": 2,
+      "set": "viostorm",
+      "title": "Violent Storm (ver EAC)",
+      "save_filename": "viostorm.sav",
+      "rom_verified": true,
+      "implementation": "pending",
+      "visible_raster": [
+        384,
+        224
+      ],
+      "visible_origin": [
+        40,
+        16
+      ],
+      "rotation": 0,
+      "status": "planned"
+    },
+    {
+      "id": 3,
+      "set": "metamrph",
+      "title": "Metamorphic Force (ver EAA)",
+      "save_filename": "metamrph.sav",
+      "rom_verified": true,
+      "implementation": "pending",
+      "visible_raster": [
+        288,
+        224
+      ],
+      "visible_origin": [
+        24,
+        15
+      ],
+      "rotation": 0,
+      "status": "planned"
+    },
+    {
+      "id": 4,
+      "set": "mtlchamp",
+      "title": "Martial Champion (ver EAB)",
+      "save_filename": "mtlchamp.sav",
+      "rom_verified": true,
+      "implementation": "pending",
+      "visible_raster": [
+        384,
+        224
+      ],
+      "visible_origin": [
+        32,
+        16
+      ],
+      "rotation": 0,
+      "status": "planned"
+    },
+    {
+      "id": 5,
+      "set": "mmaulers",
+      "title": "Monster Maulers (ver EAA)",
+      "save_filename": "mmaulers.sav",
+      "rom_verified": true,
+      "implementation": "pending",
+      "visible_raster": [
+        288,
+        224
+      ],
+      "visible_origin": [
+        24,
+        17
+      ],
+      "rotation": 0,
+      "status": "planned"
+    }
+  ],
+  "note": "Catalog of verified ROM sets; pending profiles are not offered in Pocket selection."
+}

@@ -1,0 +1,26 @@
+`verilator_config
+// Pinned Intel21.1 simulation library uses legacy integer widths/static tasks.
+lint_off -rule WIDTHEXPAND -file "*altera_mf.v"
+lint_off -rule WIDTHTRUNC -file "*altera_mf.v"
+lint_off -rule PINMISSING -file "*altera_mf.v"
+lint_off -rule IMPLICITSTATIC -file "*altera_mf.v"
+lint_off -rule MISINDENT -file "*altera_mf.v"
+lint_off -rule INITIALDLY -file "*altera_mf.v"
+lint_off -rule MULTIDRIVEN -file "*altera_mf.v"
+lint_off -rule CASEX -file "*altera_mf.v"
+lint_off -rule UNOPTFLAT -file "*altera_mf.v"
+// Unused optional output ports in the unchanged inherited SDK/top spans.
+lint_off -rule PINMISSING -file "*family_top_extract.svh"
+lint_off -rule PINMISSING -file "*core_bridge_cmd.sv"
+lint_off -rule PINMISSING -file "*data_loader.sv"
+lint_off -rule PINMISSING -file "*data_unloader.sv"
+lint_off -rule CASEX -file "*family_top_extract.svh"
+lint_off -rule COMBDLY -file "*family_top_extract.svh"
+// Inherited SDK bit-field/int assignments, previously exercised APF components.
+lint_off -rule WIDTHTRUNC -file "*core_bridge_cmd.sv"
+lint_off -rule WIDTHEXPAND -file "*core_bridge_cmd.sv"
+lint_off -rule WIDTHTRUNC -file "*data_loader.sv"
+lint_off -rule INITIALDLY -file "*core_bridge_cmd.sv"
+lint_off -rule CASEINCOMPLETE -file "*core_bridge_cmd.sv"
+lint_off -rule CASEX -file "*core_bridge_cmd.sv"
+lint_off -rule COMBDLY -file "*core_bridge_cmd.sv"

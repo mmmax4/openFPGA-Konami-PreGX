@@ -1,0 +1,4 @@
+# Shared-profile candidate clock tree; physical qualification required.
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) "pregx_clock_tree.sv"]
+set_global_assignment -name QIP_FILE [file join $::quartus(qip_path) "pll7.qip"]
+set_global_assignment -name QIP_FILE [file join $::quartus(qip_path) "mux.qip"]

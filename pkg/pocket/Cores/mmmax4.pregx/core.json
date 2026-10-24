@@ -1,0 +1,36 @@
+{
+  "core": {
+    "magic": "APF_VER_1",
+    "metadata": {
+      "platform_ids": [
+        "pregx"
+      ],
+      "shortname": "pregx",
+      "description": "Konami pre-GX: Gaiapolis / Mystic Warriors",
+      "author": "mmmax4",
+      "url": "https://github.com/mmmax4/openFPGA-Konami-PreGX",
+      "version": "0.2.0-m2-pocket04",
+      "date_release": "2026-10-23"
+    },
+    "framework": {
+      "target_product": "Analogue Pocket",
+      "version_required": "1.1",
+      "sleep_supported": false,
+      "dock": {
+        "supported": true,
+        "analog_output": false
+      },
+      "hardware": {
+        "link_port": false,
+        "cartridge_adapter": 0
+      }
+    },
+    "cores": [
+      {
+        "name": "default",
+        "id": 0,
+        "filename": "bitstream.rbf_r"
+      }
+    ]
+  }
+}

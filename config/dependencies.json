@@ -1,0 +1,72 @@
+[
+  {
+    "path": "target/pocket/analogizer/debounce.vhd",
+    "group": "gateware",
+    "url": "https://raw.githubusercontent.com/RndMnkIII/MiraxPocket/9dfdd2b9bec79fe5ea10e154a0613a0c9d4fe37f/src/fpga/analogizer/debounce.vhd",
+    "sha256": "33d6cd1f03f6f0557d48438396ffc4af8b310ae6a63e9570a5922bca7efad73b",
+    "terms": "Original upstream terms apply; obtain directly, not redistributed in this repository."
+  },
+  {
+    "path": "target/pocket/analogizer/dualshock_controller.v",
+    "group": "gateware",
+    "url": "https://raw.githubusercontent.com/RndMnkIII/MiraxPocket/9dfdd2b9bec79fe5ea10e154a0613a0c9d4fe37f/src/fpga/analogizer/dualshock_controller.v",
+    "sha256": "b0d5d8680f7789308cf2020718a0a2bb5a7df8aac1adc275833cbaf38c685c26",
+    "terms": "Original upstream terms apply; obtain directly, not redistributed in this repository."
+  },
+  {
+    "path": "target/pocket/analogizer/ps2_keyboard.vhd",
+    "group": "gateware",
+    "url": "https://raw.githubusercontent.com/RndMnkIII/MiraxPocket/9dfdd2b9bec79fe5ea10e154a0613a0c9d4fe37f/src/fpga/analogizer/ps2_keyboard.vhd",
+    "sha256": "9dcc73839af416dc8fcfdeb0019062a9e057408254c9e962838d2ed0128eb43d",
+    "terms": "Original upstream terms apply; obtain directly, not redistributed in this repository."
+  },
+  {
+    "path": "ref/mame/k053246_k053247_k055673.cpp",
+    "group": "reference",
+    "url": "https://raw.githubusercontent.com/mamedev/mame/76af2d6d907f0df822dca1d5146454cc5ee18294/src/mame/konami/k053246_k053247_k055673.cpp",
+    "sha256": "fc534b7b0e250b80a9706a99622a339f681fa49e5ad207bc027e410c6f9f1f27",
+    "terms": "Retain original per-file MAME notices."
+  },
+  {
+    "path": "ref/mame/k054156_k054157_k056832.cpp",
+    "group": "reference",
+    "url": "https://raw.githubusercontent.com/mamedev/mame/76af2d6d907f0df822dca1d5146454cc5ee18294/src/mame/konami/k054156_k054157_k056832.cpp",
+    "sha256": "39ed73342c569faa276d48561189d7900a88354b5a8261de3a78d06156b52091",
+    "terms": "Retain original per-file MAME notices."
+  },
+  {
+    "path": "ref/mame/mystwarr.cpp",
+    "group": "reference",
+    "url": "https://raw.githubusercontent.com/mamedev/mame/76af2d6d907f0df822dca1d5146454cc5ee18294/src/mame/konami/mystwarr.cpp",
+    "sha256": "ece43729edea2dc86615fb96f19d0c3cc8fc93a8776fc38353e31a48235fec9a",
+    "terms": "Retain original per-file MAME notices."
+  },
+  {
+    "path": "ref/mame/mystwarr.h",
+    "group": "reference",
+    "url": "https://raw.githubusercontent.com/mamedev/mame/76af2d6d907f0df822dca1d5146454cc5ee18294/src/mame/konami/mystwarr.h",
+    "sha256": "0272bc6205ddc3c4529c2e670e35572d51a9fdeebad1f73bc3cfc79db11812a3",
+    "terms": "Retain original per-file MAME notices."
+  },
+  {
+    "path": "ref/mame/mystwarr_v.cpp",
+    "group": "reference",
+    "url": "https://raw.githubusercontent.com/mamedev/mame/76af2d6d907f0df822dca1d5146454cc5ee18294/src/mame/konami/mystwarr_v.cpp",
+    "sha256": "960e935ad8cf16e3e37d019f2a04a31942041a107a907023aa89434d386bc257",
+    "terms": "Retain original per-file MAME notices."
+  },
+  {
+    "path": "ref/mame/romentry.h",
+    "group": "reference",
+    "url": "https://raw.githubusercontent.com/mamedev/mame/76af2d6d907f0df822dca1d5146454cc5ee18294/src/emu/romentry.h",
+    "sha256": "572a2d095ee86abafcc30e4df876e76d5a03d56d2add9d4b80dfb31835580a08",
+    "terms": "Retain original per-file MAME notices."
+  },
+  {
+    "path": "ref/mame/romload.cpp",
+    "group": "reference",
+    "url": "https://raw.githubusercontent.com/mamedev/mame/76af2d6d907f0df822dca1d5146454cc5ee18294/src/emu/romload.cpp",
+    "sha256": "854873d6f1b33d1dd3614a219b4b744f8fefb11708c8389141157825599f275f",
+    "terms": "Retain original per-file MAME notices."
+  }
+]

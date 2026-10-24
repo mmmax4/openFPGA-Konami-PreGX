@@ -1,0 +1,39 @@
+{
+  "data": {
+    "magic": "APF_VER_1",
+    "data_slots": [
+      {
+        "name": "Arcade Game",
+        "id": 0,
+        "required": true,
+        "parameters": "0x113",
+        "extensions": [
+          "json"
+        ],
+        "address": ""
+      },
+      {
+        "name": "ROM Set",
+        "id": 1,
+        "required": true,
+        "parameters": "0x10A",
+        "extensions": [
+          "rom"
+        ],
+        "address": "0x00000000"
+      },
+      {
+        "name": "EEPROM Settings",
+        "id": 2,
+        "required": false,
+        "parameters": "0x2",
+        "nonvolatile": true,
+        "extensions": [
+          "sav"
+        ],
+        "address": "0x20000000",
+        "size_maximum": "0x80"
+      }
+    ]
+  }
+}

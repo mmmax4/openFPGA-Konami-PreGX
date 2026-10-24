@@ -1,0 +1,21 @@
+set_global_assignment -entity "pregx_vidmux" -library "pregx_vidmux" -name IP_TOOL_NAME "Qsys"
+set_global_assignment -entity "pregx_vidmux" -library "pregx_vidmux" -name IP_TOOL_VERSION "21.1"
+set_global_assignment -entity "pregx_vidmux" -library "pregx_vidmux" -name IP_TOOL_ENV "Qsys"
+set_global_assignment -entity "pregx_vidmux" -library "pregx_vidmux" -name IP_TARGETED_DEVICE_FAMILY "Cyclone V"
+set_global_assignment -entity "pregx_vidmux" -library "pregx_vidmux" -name IP_GENERATED_DEVICE_FAMILY "{Cyclone V}"
+set_global_assignment -entity "pregx_vidmux" -library "pregx_vidmux" -name IP_QSYS_MODE "UNKNOWN"
+set_global_assignment -name SYNTHESIS_ONLY_QIP ON
+set_global_assignment -entity "pregx_vidmux" -library "pregx_vidmux" -name IP_COMPONENT_NAME "cHJlZ3hfdmlkbXV4"
+set_global_assignment -entity "pregx_vidmux" -library "pregx_vidmux" -name IP_COMPONENT_DISPLAY_NAME "QUxUQ0xLQ1RSTCBJbnRlbCBGUEdBIElQ"
+set_global_assignment -entity "pregx_vidmux" -library "pregx_vidmux" -name IP_COMPONENT_REPORT_HIERARCHY "Off"
+set_global_assignment -entity "pregx_vidmux" -library "pregx_vidmux" -name IP_COMPONENT_INTERNAL "Off"
+set_global_assignment -entity "pregx_vidmux" -library "pregx_vidmux" -name IP_COMPONENT_AUTHOR "SW50ZWwgQ29ycG9yYXRpb24="
+set_global_assignment -entity "pregx_vidmux" -library "pregx_vidmux" -name IP_COMPONENT_VERSION "MjEuMQ=="
+set_global_assignment -entity "pregx_vidmux" -library "pregx_vidmux" -name IP_COMPONENT_PARAMETER "REVWSUNFX0ZBTUlMWQ==::Q3ljbG9uZSBW::RGV2aWNlIEZhbWlseQ=="
+set_global_assignment -entity "pregx_vidmux" -library "pregx_vidmux" -name IP_COMPONENT_PARAMETER "Q0xPQ0tfVFlQRQ==::MQ==::SG93IGRvIHlvdSB3YW50IHRvIHVzZSB0aGUgQUxUQ0xLQ1RSTD8="
+set_global_assignment -entity "pregx_vidmux" -library "pregx_vidmux" -name IP_COMPONENT_PARAMETER "TlVNQkVSX09GX0NMT0NLUw==::NA==::SG93IG1hbnkgY2xvY2sgaW5wdXRzIHdvdWxkIHlvdSBsaWtlPw=="
+set_global_assignment -entity "pregx_vidmux" -library "pregx_vidmux" -name IP_COMPONENT_PARAMETER "RU5BX1JFR0lTVEVSX01PREU=::MQ==::SG93IGRvIHlvdSB3YW50IHRvIHJlZ2lzdGVyIHRoZSAnZW5hJyBwb3J0Pw=="
+set_global_assignment -entity "pregx_vidmux" -library "pregx_vidmux" -name IP_COMPONENT_PARAMETER "R1VJX1VTRV9FTkE=::dHJ1ZQ==::Q3JlYXRlICdlbmEnIHBvcnQgdG8gZW5hYmxlIG9yIGRpc2FibGUgdGhlIGNsb2NrIG5ldHdvcmsgZHJpdmVuIGJ5IHRoaXMgYnVmZmVyPw=="
+set_global_assignment -entity "pregx_vidmux" -library "pregx_vidmux" -name IP_COMPONENT_PARAMETER "VVNFX0dMSVRDSF9GUkVFX1NXSVRDSF9PVkVSX0lNUExFTUVOVEFUSU9O::dHJ1ZQ==::RW5zdXJlIGdsaXRjaC1mcmVlIHN3aXRjaG92ZXIgaW1wbGVtZW50YXRpb24="
+
+set_global_assignment -library "pregx_vidmux" -name VERILOG_FILE [file join $::quartus(qip_path) "mux/pregx_vidmux.v"]

@@ -1,0 +1,6 @@
+`verilator_config
+// Production geometry intentionally wraps modulo 512/1024. These upper
+// bits were reviewed in the original renderer; keep new unused signals visible.
+lint_off -rule UNUSEDSIGNAL -file "*rtl/k053247_objlist.sv" -match "*k46_offy*"
+lint_off -rule UNUSEDSIGNAL -file "*rtl/k053247_objlist.sv" -match "*DYS*"
+lint_off -rule UNUSEDSIGNAL -file "*rtl/k053247_objlist.sv" -match "*wrapmsk*"
