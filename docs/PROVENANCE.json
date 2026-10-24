@@ -168,7 +168,7 @@
   },
   "generated_build_id_sha256": "c2c179b847ad757c96a97cb5ad9cc77980e897e37de7b38a419228e604bcce60",
   "reference_pin": "76af2d6d907f0df822dca1d5146454cc5ee18294",
-  "public_binary_release": false,
+  "public_binary_release": true,
   "screenshots": "User-supplied Pocket04 captures, lossless PNG exports; game artwork remains separately copyrighted.",
   "publication_hardware_changes": false,
   "banner_support_filter": {
@@ -189,5 +189,31 @@
     "raw_rbf_sha256": "63966746e84bd896609e4fc4ca86afbc01fa948a3b837f44188373d8ee5cf174",
     "pocket_rbf_sha256": "1d3de45be09af971b6abf50e7d6db8b906e13b2be8073c74bb7bc1813b22c2f6",
     "new_hardware_build": false
+  },
+  "release": {
+    "version": "0.2.0",
+    "tag": "v0.2.0",
+    "url": "https://github.com/mmmax4/openFPGA-Konami-PreGX/releases/tag/v0.2.0",
+    "published_at": "2026-10-24T15:55:48Z",
+    "release_id": 422822128,
+    "source_commit": "50b60676f8d720e502f0c7e1b9f992db431c4eaf",
+    "artifacts": [
+      {
+        "name": "mmmax4.pregx-v0.2.0-source.zip",
+        "size": 1252701,
+        "digest": "sha256:720dad75a10253d319452b4378c27dcf5760471771ad25351273bbba0b45532a"
+      },
+      {
+        "name": "mmmax4.pregx-v0.2.0.zip",
+        "size": 1046905,
+        "digest": "sha256:a4c7af57ab304b7c000480c30154babd5b18dded6dcf7d22e6cd5745c24f7e6d"
+      },
+      {
+        "name": "SHA256SUMS",
+        "size": 187,
+        "digest": "sha256:4e12bb5923c85172d87bb8892fe5f991d3e4fd11c2ee578d591f881adec60527"
+      }
+    ],
+    "hardware_changed": false
   }
 }

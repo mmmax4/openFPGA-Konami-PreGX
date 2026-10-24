@@ -70,11 +70,10 @@ The Sunset Riders billboard below is a scene **inside Mystic Warriors**.
 
 ## Source and setup
 
-Version **0.2.0** is prepared from the tested **Pocket04** hardware with the
-two-game banner. **A public binary release is pending review of inherited
-Analogizer controller terms alongside GPL components.** No binary download is
-published yet. Release names use the version number only; see
-[release status and changes](CHANGELOG.md). See [build instructions](docs/BUILD.md),
+Download [**0.2.0**](https://github.com/mmmax4/openFPGA-Konami-PreGX/releases/tag/v0.2.0),
+the ROM-free release using the tested **Pocket04** hardware and two-game banner.
+The release includes the Pocket core, ROM builders, corresponding source and
+checksums. See [release changes](CHANGELOG.md), [build instructions](docs/BUILD.md),
 [ROM setup](docs/ROM_SETUP.md), [validation scope](docs/VALIDATION.md),
 [credits](CREDITS.md) and [licensing](LICENSING.md).
 

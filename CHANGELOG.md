@@ -1,11 +1,12 @@
 # Releases
 
-## 0.2.0 — prepared, not publicly released
+## 0.2.0 — 2026-10-24
 
-This version uses the unchanged M2 Pocket04 hardware tested on Pocket. The
-public release is pending resolution of inherited Analogizer controller terms
-alongside GPL components. The project retains its GPL license and the original
-component-specific notices.
+Published [0.2.0](https://github.com/mmmax4/openFPGA-Konami-PreGX/releases/tag/v0.2.0)
+uses the unchanged M2 Pocket04 hardware tested on Pocket. The project retains
+its GPL license and original component-specific notices. The original verified
+draft archives are unchanged; the release page records current availability
+where their preparation-time documents still refer to draft status.
 
 - Playable: **Gaiapolis (ver EAF)** and **Mystic Warriors (ver EAA)**, selected
   through one shared menu. Other family games remain planned; Violent Storm is next.
