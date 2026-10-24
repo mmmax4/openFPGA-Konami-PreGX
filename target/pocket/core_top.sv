@@ -1093,7 +1093,13 @@ module core_top
     wire        dbg_step, dbg_irq5, dbg_overrun, dbg_unsupported, dbg_shadow_overlap, dbg_zstep, dbg_zwait;
     wire  [2:0] dbg_overrun_src;
 
-    gaia_core #(.HEXDIR("../rtl/data")) ga (
+    // Separate opt-in diagnostic build; ordinary builds retain exact bypass.
+`ifdef MYSTIC_INTRO_COMPAT
+    localparam bit INTRO_COMPAT_BUILD=1'b1;
+`else
+    localparam bit INTRO_COMPAT_BUILD=1'b0;
+`endif
+    gaia_core #(.HEXDIR("../rtl/data"),.MYSTIC_INTRO_COMPAT(INTRO_COMPAT_BUILD)) ga (
         .mystic(mystic_profile), .mystic_p12(mystic_p12), .mystic_p34(mystic_p34), .mystic_in0(mystic_in0),
         .tile_fifth(tile_fifth), .spr_fifth(spr_fifth),
         .clk(clk_sys), .reset(ga_reset), .pause(pause_core), .pix_sync(pix_sync), .vid_reset(~pll_locked_sys | ~profile_clock_ready),

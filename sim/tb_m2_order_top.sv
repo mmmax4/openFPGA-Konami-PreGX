@@ -20,6 +20,7 @@ module tb_m2_order_top(
     wire [7:0] shdpri[3];
     assign shdpri='{8'd16,8'd64,8'd96};
     k053247_objlist objects(
+        .intro_postportrait(1'b0),
 `ifdef M2_ORDER_STREAM_API
         .stream_enable(stream_enable),.shdprisel(shdprisel),
 `else

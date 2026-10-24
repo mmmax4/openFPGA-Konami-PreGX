@@ -42,6 +42,7 @@ module tb_objlist_top (
     wire unused_ol = ^{ol_zoom_addr, ol_yr_q};
     /* verilator lint_on UNUSEDSIGNAL */
     k053247_objlist u_ol (
+        .intro_postportrait(1'b0),
         .mystic(1'b0),
         .stream_enable(1'b0),.shdprisel(6'h3f),
         .clk(clk), .reset(reset), .start(start), .done(done), .busy(busy),

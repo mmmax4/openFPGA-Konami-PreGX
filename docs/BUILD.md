@@ -1,6 +1,6 @@
 # Build
 
-The hardware snapshot is the source used for the Pocket04 candidate16 fit.
+The hardware snapshot is the source used for the intro01 compatibility17 fit.
 Quartus Prime Lite **21.1.1**, Cyclone V support and Python 3 were used. No new
 Quartus build is claimed for this publication. Device settings, clock IP,
 constraints and generated CPU source are retained. Do not copy timing exceptions
@@ -32,7 +32,7 @@ saves. Follow ROM_SETUP.md before use. This local helper is not a public binary
 release and does not establish hardware qualification for a new fit.
 
 The pre-flow Tcl generates a date/time/random build identifier; the retained
-Pocket04 MIF records the tested build, while recompilation generates a new one.
+intro01 MIF records the tested build, while recompilation generates a new one.
 Bit-identical rebuilds are not promised. TG68K's original VHDL, generated Verilog
 and GHDL synthesis recipe are included; the inherited conversion used GHDL6.0.
 
@@ -45,3 +45,15 @@ The historical mixer comparison additionally requires GAIAPOLIS_REFERENCE_MIXER
 pointing to the original mixer at the base upstream commit, a timing-capable
 Verilator (VERILATOR or PATH) and a C++20-capable compiler/wrapper (CXX). Its
 public helper has portable paths; no fresh mixer simulation is claimed here.
+
+The released Quartus project explicitly defines `MYSTIC_INTRO_COMPAT=1`, matching
+the Pocket-tested bitstream. The reusable module parameter defaults to zero.
+To build a diagnostic without the workaround, remove that QSF macro assignment;
+the current `ifdef` tests macro presence, so defining it as `=0` does not disable
+it. A changed build has its own validation scope. See INTRO_WORKAROUND.md.
+
+The added `sim/tb_m2_names_compat.cpp` and `_top.sv` retain the component test
+logic. Their executed four-way comparison used an archived unmodified object
+list (module name changed only), original private scene snapshots and expected
+draw orders. Those game captures are not bundled, so this source archive alone
+does not claim a new runnable-fixture or test pass.

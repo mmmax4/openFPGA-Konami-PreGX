@@ -28,6 +28,7 @@ module tb_m2_zslot_top(
     sprite_tables tables(.clk(clk),.zoom_addr(zoom_addr),.zoom_q(zoom_q),
                          .recip_addr(11'd0),.recip_q());
     k053247_objlist objects(
+        .intro_postportrait(1'b0),
         .mystic(mystic),.stream_enable(stream_enable),.shdprisel(shdprisel),
         .clk(clk),.reset(reset),.start(start),.done(done),.busy(busy),
         .opset(opset),.objset1(objset1),.shadowon(shadowon),.shdpri(shdpri),.k46_offy(k46_offy),

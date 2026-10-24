@@ -4,8 +4,8 @@
     "repository": "https://github.com/plasticbugs/analogue-pocket-gaiapolis",
     "commit": "3cc3ab372331fc5659f81e7c53a5aafff3049e08"
   },
-  "hardware_commit": "ee302eaa74ac31f3bc770bb76999eb68b82e25b0",
-  "compile_manifest_sha256": "55d4991e413ffeededcbad46c3e38a0bc32908a5118aae5548b22a0f4e904dd0",
+  "hardware_commit": "e978e86c1a3d3008949f58293a4faa29ba9ab72d",
+  "compile_manifest_sha256": "d296929a6224b66e6fef417fd9b2e0addaed16a1d2d8eb5d41ad9a35169f12f9",
   "source_inputs_sha256": {
     "modules/cpu-tg68k/TG68K.vhd": "dc3f799adfac8d7939c88d0b6ab14de8a2b3ec903523096fa2ed715266bbb851",
     "modules/cpu-tg68k/TG68K_ALU.vhd": "a697cdd468700d9979f2aaca8a9cbeb613e7ec33ebc67698083acf353b948036",
@@ -83,7 +83,7 @@
     "platform/pocket/video/video_mixer.sv": "655183a23d87f3f12799f638a243a7c4af1a12c3f3aaae42fc952cff4bf22b93",
     "projects/gaia_pocket.qip": "8c883a9fe6c21a1d9d1573f017829e642290ec70d0fd5497d5954fa811afc2ff",
     "projects/gaia_pocket.qpf": "155c8445d2f628869fc70931818f85553969dba64416e8f7cd40f9f021e5cc7f",
-    "projects/gaia_pocket.qsf": "8b62dcbdaba2df57d2d80bcd0a5dfe522d1d8757d249951d0ecbdb9c8350cf4a",
+    "projects/gaia_pocket.qsf": "4e2954c2309518f70c1ebc1b1b97087373331a79b6b493eba4a43c9fa0441a66",
     "projects/gaia_pocket.sdc": "e97c9317cd84daeb350484845d479c517890fd3479781935b6aecdb08d42ea89",
     "projects/hold.tcl": "48541ac96b2226f1bd260ba1810f3ec7a58a2988721d9eac0d07a1e7f5352df8",
     "projects/list_sources.tcl": "2a1269625177fff433a71219af3ca9799aab503f66614cec37818ebaada0a2c1",
@@ -97,14 +97,14 @@
     "rtl/data/zoom.hex": "e373da412e22e3dea9605cbc0d2e05a236559f016b4c20dcf36d764df59335d7",
     "rtl/dbg_overlay.sv": "3d8587e448946cd3949a2c98c2ff66665fb57db72e82fcffefe388bdef856555",
     "rtl/er5911.sv": "d298b5266b04dbf2b3045bae40ceb035c98139081d6927c7606ef8358c648842",
-    "rtl/gaia_core.sv": "ea79a3d4710439c758977acbc44055a8dd850c10ef14ba76c38b07130785c24a",
+    "rtl/gaia_core.sv": "0f39708120d6ade5c7b0ad2483f9249f9a5a357790fef2665c591c6964200f0f",
     "rtl/gaia_inputs.sv": "f67ca9d942d9453b04a7c25ba65a4a97166bb9990183cd9c8896b08058115119",
     "rtl/gaia_main.sv": "37aedcdd7c2615d7f63d984bca6fd0a99dc44392b7ed529d06515c6d0c00c2ba",
     "rtl/gaia_sound.sv": "cfad5af0570eb000ab62c58c9d4d61db0964ba8dbc2a59093ef7a1d2cc92060c",
     "rtl/gaia_video.sv": "37d945599051e67c8d08bb9c4cea849c1ad324400e4e874edf7aab5edd3f3475",
     "rtl/index.qip": "eae88f0b19dc2ba2cfe0cf1525da3ec40a6e87de5056943431b2c39ac0176430",
     "rtl/k053247_draw.sv": "de7ae949088f02077b5944499c47425ac6a6048b42e752cd38f2315cd4d28743",
-    "rtl/k053247_objlist.sv": "2bf7fa476cd8457e106c15dccfd4673d28a8a8f73e517e8b96c8e05b54d495c7",
+    "rtl/k053247_objlist.sv": "70479e477939545135cc1f6939741a00461e82429db822626995853f692ae86d",
     "rtl/k053936_roz.sv": "740d9fc1daf2814b848c3f36224b3a55a747bedbe8dee77bdebfcf64f54f8ab4",
     "rtl/k054000.sv": "5cf4b57df3def59f6ec513d74e7931c747a14b3db272fc9975ebb6cd39ed0d7c",
     "rtl/k054321.sv": "7736d4992a730f7eb43eda2f200ea1177da473b1631cc307471266513da37236",
@@ -148,7 +148,7 @@
     "target/pocket/core_pll/core_pll/core_pll_0002.v": "c172c2116b5b711ce9278da97f17e972b6f4592f1ff5911434c5769c66ce039f",
     "target/pocket/core_pll/core_pll.qip": "b9951bc63e591789265f996f930098f1374b070dfd50a8863df9ddd7ab5755b7",
     "target/pocket/core_pll/core_pll.v": "9ec2c2a705fe290a198159db9f5c58520861a21e2e90233a8774f48064e68156",
-    "target/pocket/core_top.sv": "015df987711b6dae19f7c8dafc3ec86bcc6682a61f418a471ad8fe7cac59303e",
+    "target/pocket/core_top.sv": "5bd4f7b18a45b9c9e7c762c622518ec4bea9c899787fe9c9378ae1e4c5a6d6d6",
     "target/pocket/gaia_mem.sv": "77dab80f4fb6dd5002a6953a89c2194e57ce440e023d8f213ee4565d1e625fd1",
     "target/pocket/pocket_analogizer.sv": "5d95a434f49bc05e48c5d171182defd20689a5ae407fa7a68c93a914024cba5c",
     "target/pocket/pregx_clocks/clocks.qip": "80d1c3ab06744a0b1bff446ffea8004a12ef71db01650a58cdfd7f5185aa364b",
@@ -166,10 +166,10 @@
     "target/pocket/analogizer/dualshock_controller.v": "b0d5d8680f7789308cf2020718a0a2bb5a7df8aac1adc275833cbaf38c685c26",
     "target/pocket/analogizer/ps2_keyboard.vhd": "9dcc73839af416dc8fcfdeb0019062a9e057408254c9e962838d2ed0128eb43d"
   },
-  "generated_build_id_sha256": "c2c179b847ad757c96a97cb5ad9cc77980e897e37de7b38a419228e604bcce60",
+  "generated_build_id_sha256": "2012f881cda93c3135bedf36c1ba43c1ca1656ade6ed7099310e4318924d5e9c",
   "reference_pin": "76af2d6d907f0df822dca1d5146454cc5ee18294",
   "public_binary_release": true,
-  "screenshots": "User-supplied Pocket04 captures, lossless PNG exports; game artwork remains separately copyrighted.",
+  "screenshots": "Pocket04 before and intro01 after, lossless PNG container exports; native image scanlines unchanged.",
   "publication_hardware_changes": false,
   "banner_support_filter": {
     "visible_sets": [
@@ -182,38 +182,27 @@
     "layout": "config/banner-layout.json",
     "hardware_changed": false
   },
-  "release_candidate": {
-    "version": "0.2.0",
-    "hardware_build": "M2 Pocket04",
-    "status": "prepared; public binary distribution pending inherited-license review",
-    "raw_rbf_sha256": "63966746e84bd896609e4fc4ca86afbc01fa948a3b837f44188373d8ee5cf174",
-    "pocket_rbf_sha256": "1d3de45be09af971b6abf50e7d6db8b906e13b2be8073c74bb7bc1813b22c2f6",
-    "new_hardware_build": false
-  },
+  "hardware_delta_from_previous_release": [
+    "projects/gaia_pocket.qsf",
+    "rtl/gaia_core.sv",
+    "rtl/k053247_objlist.sv",
+    "target/pocket/core_top.sv"
+  ],
   "release": {
-    "version": "0.2.0",
-    "tag": "v0.2.0",
-    "url": "https://github.com/mmmax4/openFPGA-Konami-PreGX/releases/tag/v0.2.0",
-    "published_at": "2026-10-24T15:55:48Z",
-    "release_id": 422822128,
-    "source_commit": "50b60676f8d720e502f0c7e1b9f992db431c4eaf",
-    "artifacts": [
-      {
-        "name": "mmmax4.pregx-v0.2.0-source.zip",
-        "size": 1252701,
-        "digest": "sha256:720dad75a10253d319452b4378c27dcf5760471771ad25351273bbba0b45532a"
-      },
-      {
-        "name": "mmmax4.pregx-v0.2.0.zip",
-        "size": 1046905,
-        "digest": "sha256:a4c7af57ab304b7c000480c30154babd5b18dded6dcf7d22e6cd5745c24f7e6d"
-      },
-      {
-        "name": "SHA256SUMS",
-        "size": 187,
-        "digest": "sha256:4e12bb5923c85172d87bb8892fe5f991d3e4fd11c2ee578d591f881adec60527"
-      }
-    ],
-    "hardware_changed": false
-  }
+    "version": "0.2.1",
+    "tag": "v0.2.1",
+    "url": "https://github.com/mmmax4/openFPGA-Konami-PreGX/releases/tag/v0.2.1",
+    "hardware_build": "intro01 compatibility17",
+    "raw_rbf_sha256": "a14c911fbe20aa5e11726cd455fb80328c2f913da78b5c8529202d7b6bec6869",
+    "pocket_rbf_sha256": "c2f11b380b83680d33f5d97e9422b22c21261b682d9a32fa1d96334915a963a8",
+    "same_hardware_as_user_tested_intro01": true
+  },
+  "intro_workaround": {
+    "enabled_in_project": true,
+    "reusable_parameter_default": false,
+    "scene_specific": true,
+    "general_silicon_rule_proven": false,
+    "original_game_data_patched": false
+  },
+  "new_reference_policy": "For the next game audit the latest stable MAME release, then pin tag/commit/file hashes; retain historical builder and qualification pins."
 }

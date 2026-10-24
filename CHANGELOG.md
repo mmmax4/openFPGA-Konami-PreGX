@@ -1,5 +1,24 @@
 # Releases
 
+## 0.2.1 — 2026-10-24
+
+- Mystic Warriors: scene-specific compatibility workaround removes lingering red
+  ninja names after the portrait presentation. Portrait names and normal captions
+  remain visible. Original game data is not patched.
+- The user confirms the fix on Pocket and continued normal operation of both
+  Mystic Warriors and Gaiapolis. Uses the unchanged tested intro01 bitstream;
+  release version and packaging metadata become 0.2.1.
+- Public source includes the exact fitted RTL and the enabled project macro;
+  the reusable module parameter still defaults off. Added component test sources.
+- Centered banner and screenshots, with actual Pocket before/after captures and
+  an explanation of the workaround's scope.
+- ROM-free complete SD package, original-ROM builders, corresponding source,
+  checksums and all inherited license notices. Existing saves are preserved.
+
+Only Gaiapolis EAF and Mystic Warriors EAA are playable. Violent Storm remains
+next. No new full playthrough, Analogizer or high-score qualification is claimed.
+See [intro workaround](docs/INTRO_WORKAROUND.md) and [validation](docs/VALIDATION.md).
+
 ## 0.2.0 — 2026-10-24
 
 Published [0.2.0](https://github.com/mmmax4/openFPGA-Konami-PreGX/releases/tag/v0.2.0)
@@ -28,7 +47,7 @@ and [licensing](LICENSING.md).
 
 ## Development history
 
-### M2 Pocket04 — current source snapshot
+### M2 Pocket04 — historical source snapshot
 
 - Mystic sprite-copy timing aligned with the reviewed blanking/enable trigger.
 - K055555/K054338 brightness integrated before alpha; shadows remain separate.

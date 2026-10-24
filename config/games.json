@@ -19,7 +19,8 @@
         16
       ],
       "rotation": 90,
-      "status": "playable_development"
+      "status": "playable_Pocket_tested",
+      "validation_scope": "intro01 user confirms continued normal operation; no new full playthrough"
     },
     {
       "id": 1,
@@ -37,7 +38,9 @@
         16
       ],
       "rotation": 0,
-      "status": "playable_development"
+      "status": "playable_Pocket_tested",
+      "validation_scope": "intro01 user confirms continued normal operation; no new full playthrough",
+      "intro_names_workaround": "scene-specific; enabled in release 0.2.1"
     },
     {
       "id": 2,

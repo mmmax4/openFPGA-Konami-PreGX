@@ -20,12 +20,14 @@
 `default_nettype none
 
 module k053247_objlist #(
+    parameter bit INTRO_COMPAT = 1'b0, // opt-in experimental EAA intro workaround
     parameter int MAXOBJ = 512,         // 256 entries x (solid + shadow)
     parameter int DY = -22               // the renderer's vertical offset (k053247_draw DY)
 ) (
     input  logic        clk,
     input  logic        reset,
     input  logic        mystic,        // stable profile through list build/use
+    input logic intro_postportrait,   // explicit opt-in and post-portrait layout
     input logic stream_enable,        // optional RGB producer: deferred shadows last
     input logic [5:0] shdprisel,
 
@@ -92,7 +94,7 @@ module k053247_objlist #(
     typedef enum logic [4:0] {
         O_IDLE, O_B0, O_B1, O_B2, O_B3, O_B4, O_B5, O_B6, O_B7, O_B8, O_B9, O_B10, O_EMIT, O_NEXTENT,
         O_CLR, O_CNT, O_CNTW, O_CNT2, O_CNT3, O_PRE, O_PRE2, O_SCAT, O_SCATW, O_SCAT2, O_SCAT3,
-        O_NEXTPASS, O_DONE
+        O_NEXTPASS, O_DONE, O_INTRO_ADDR, O_INTRO_WAIT, O_INTRO_CHECK
     } state_t;
     state_t st;
 
@@ -102,6 +104,82 @@ module k053247_objlist #(
                             // and shadow field are used here
     logic [15:0] w2, w4;    // y and the y zoom, for the line range
     /* verilator lint_on UNUSEDSIGNAL */
+
+    // Explicit scene-specific compatibility workaround, NOT a chip rule.
+    // Match all eight original EAA intro descriptors before omitting any.
+    // The only accepted variants are the two observed Z assignments.
+    function automatic logic intro_word_matches(input logic [5:0] index,
+                                                  input logic [15:0] value);
+        case(index)
+            6'd0: return value==16'h8108 || value==16'h8148;
+            6'd1: return value==16'h1e60;
+            6'd2: return value==16'h00b2;
+            6'd3: return value==16'h0090;
+            6'd4: return value==16'h0040;
+            6'd5: return value==16'h0040;
+            6'd6: return value==16'h0004;
+            6'd7: return value==16'h0000;
+            6'd8: return value==16'h8007 || value==16'h8047;
+            6'd9: return value==16'h1e6f;
+            6'd10: return value==16'h00b2;
+            6'd11: return value==16'h00a8;
+            6'd12: return value==16'h0040;
+            6'd13: return value==16'h0040;
+            6'd14: return value==16'h0004;
+            6'd15: return value==16'h0000;
+            6'd16: return value==16'h8506 || value==16'h8546;
+            6'd17: return value==16'h1e68;
+            6'd18: return value==16'h00d0;
+            6'd19: return value==16'h0130;
+            6'd20: return value==16'h0040;
+            6'd21: return value==16'h0040;
+            6'd22: return value==16'h0004;
+            6'd23: return value==16'h0000;
+            6'd24: return value==16'h8405 || value==16'h8445;
+            6'd25: return value==16'h1e6c;
+            6'd26: return value==16'h00d0;
+            6'd27: return value==16'h0148;
+            6'd28: return value==16'h0040;
+            6'd29: return value==16'h0040;
+            6'd30: return value==16'h0004;
+            6'd31: return value==16'h0000;
+            6'd32: return value==16'h8504 || value==16'h8544;
+            6'd33: return value==16'h1e64;
+            6'd34: return value==16'h0050;
+            6'd35: return value==16'h0090;
+            6'd36: return value==16'h0040;
+            6'd37: return value==16'h0040;
+            6'd38: return value==16'h0004;
+            6'd39: return value==16'h0000;
+            6'd40: return value==16'h8003 || value==16'h8043;
+            6'd41: return value==16'h1e6d;
+            6'd42: return value==16'h0048;
+            6'd43: return value==16'h00a0;
+            6'd44: return value==16'h0040;
+            6'd45: return value==16'h0040;
+            6'd46: return value==16'h0004;
+            6'd47: return value==16'h0000;
+            6'd48: return value==16'h8202 || value==16'h8242;
+            6'd49: return value==16'h1e5a;
+            6'd50: return value==16'h0028;
+            6'd51: return value==16'h0128;
+            6'd52: return value==16'h0040;
+            6'd53: return value==16'h0040;
+            6'd54: return value==16'h0004;
+            6'd55: return value==16'h0000;
+            6'd56: return value==16'h8201 || value==16'h8241;
+            6'd57: return value==16'h1e58;
+            6'd58: return value==16'h0068;
+            6'd59: return value==16'h015c;
+            6'd60: return value==16'h0040;
+            6'd61: return value==16'h0040;
+            6'd62: return value==16'h0004;
+            6'd63: return value==16'h0000;
+            default: return 1'b0;
+        endcase
+    endfunction
+    logic [5:0] intro_index;
+    logic intro_match, intro_skip;
 
     // ---- the line range (k053247_draw's vertical geometry, once per frame)
     logic [21:0] yr [256];
@@ -183,6 +261,7 @@ module k053247_objlist #(
         if (reset) begin
             st <= O_IDLE; busy <= 1'b0; done <= 1'b0;
             nobj <= '0; which <= 1'b0; overflow <= 1'b0;
+            intro_index<=6'd0;intro_match<=1'b0;intro_skip<=1'b0;
         end else begin
             done <= 1'b0;
             case (st)
@@ -193,8 +272,21 @@ module k053247_objlist #(
                         which <= 1'b0; overflow <= 1'b0;
                         partition_enabled<=mystic && stream_enable;
                         shadow_conditions<=shdprisel;
-                        st <= O_B0;
+                        intro_index<=6'd0;intro_match<=1'b1;intro_skip<=1'b0;
+                        st <= INTRO_COMPAT && mystic && intro_postportrait ? O_INTRO_ADDR : O_B0;
                     end
+                end
+
+                // The caller's completed snapshot stays immutable throughout
+                // list building. Use the same registered RAM port as the scan.
+                O_INTRO_ADDR: begin ram_addr<={5'd0,intro_index};st<=O_INTRO_WAIT;end
+                O_INTRO_WAIT: st<=O_INTRO_CHECK;
+                O_INTRO_CHECK: begin
+                    intro_match<=intro_match && intro_word_matches(intro_index,ram_q);
+                    if(intro_index==6'd63) begin
+                        intro_skip<=intro_match && intro_word_matches(intro_index,ram_q);
+                        st<=O_B0;
+                    end else begin intro_index<=intro_index+6'd1;st<=O_INTRO_ADDR;end
                 end
 
                 // read word 0 (active + zcode), word 6 (colour/attributes), and
@@ -204,7 +296,7 @@ module k053247_objlist #(
                 O_B2: begin w0 <= ram_q; ram_addr <= {ent, 3'd2}; st <= O_B3; end
                 O_B3: begin
                     w6 <= ram_q; ram_addr <= {ent, 3'd4};
-                    st <= active ? O_B4 : O_NEXTENT;
+                    st <= active && !(intro_skip && ent<8'd8) ? O_B4 : O_NEXTENT;
                 end
                 O_B4: begin w2 <= ram_q; st <= O_B5; end
                 O_B5: begin w4 <= ram_q; zoom_addr <= ram_q[9:0]; st <= O_B6; end
@@ -242,7 +334,9 @@ module k053247_objlist #(
 
                 O_NEXTENT: begin
                     if (ent == 8'd0) begin
-                        pass <= 2'd0; cnt_idx <= 8'd0; st <= O_CLR;
+                        pass <= 2'd0; cnt_idx <= 8'd0;
+                        // The compatibility filter may remove the entire list.
+                        st <= intro_skip && nobj==10'd0 ? O_DONE : O_CLR;
                     end else begin
                         ent <= ent - 1'd1; st <= O_B0;
                     end

@@ -2,6 +2,6 @@ Konami pre-GX - Analogue Pocket openFPGA
 By mmmax4, based on plasticbugs/Scott's Gaiapolis core.
 Playable: Gaiapolis (ver EAF), Mystic Warriors (ver EAA).
 Other family games are planned; Violent Storm is next.
-Mystic: ninja names can remain after the intro portraits.
+Mystic intro names: scene-specific compatibility workaround enabled.
 Test/Service start Unassigned; settings and game saves are independent.
 Source, credits and status: https://github.com/mmmax4/openFPGA-Konami-PreGX

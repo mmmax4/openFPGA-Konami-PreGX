@@ -96,6 +96,7 @@ module tb_sprite_top (
     logic  [7:0] yr_addr; logic [21:0] yr_q;
     assign zoom_addr = ol_busy ? ol_zoom_addr : dr_zoom_addr;
     k053247_objlist u_ol (
+        .intro_postportrait(1'b0),
         .mystic(1'b0),
         .stream_enable(1'b0),.shdprisel(6'h3f),
         .clk(clk), .reset(reset), .start(build), .done(build_done), .busy(ol_busy),

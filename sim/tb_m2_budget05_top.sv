@@ -125,7 +125,8 @@ module tb_m2_budget05_top(
  logic[7:0] yr_addr;logic[21:0] yr_q;logic[10:0] recip_addr;logic[23:0] zoom_q,recip_q;
  assign zoom_addr=ol_busy?ol_za:dr_za;
  sprite_tables #(.HEXDIR("snapshot/rtl/data")) tables(.clk(clk),.zoom_addr(zoom_addr),.zoom_q(zoom_q),.recip_addr(recip_addr),.recip_q(recip_q));
- k053247_objlist objects(.clk(clk),.reset(reset),.mystic(1'b1),.stream_enable(1'b1),.shdprisel(k55[41][5:0]),
+ k053247_objlist objects(
+        .intro_postportrait(1'b0),.clk(clk),.reset(reset),.mystic(1'b1),.stream_enable(1'b1),.shdprisel(k55[41][5:0]),
   .start(build),.done(build_done),.busy(ol_busy),.opset(k47[6]),.objset1(k46[5]),.shadowon(shadowon),.shdpri(shdpri),
   .k46_offy({k46[2],k46[3]}),.zoom_addr(ol_za),.zoom_q(zoom_q),.yr_addr(yr_addr),.yr_q(yr_q),
   .ram_addr(ol_ra),.ram_q(ram_q),.list_idx(list_idx),.list_q(list_q),.count(object_count),.overflow(overflow));

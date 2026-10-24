@@ -13,6 +13,7 @@
 
 module gaia_core #(
     parameter string HEXDIR = "rtl/data",
+    parameter bit MYSTIC_INTRO_COMPAT = 1'b0, // declared workaround, default off
     parameter int    OBJ_BUILD_LINE = 240, // raster line at which the sprite list is built: the first of vblank
     parameter int    STEP_COST_BUS = 16,   // 68000 pacing (gaia_main)
     parameter int    STEP_COST_INT = 8
@@ -444,7 +445,8 @@ module gaia_core #(
     logic  [9:0] ol_zoom_addr, dr_zoom_addr;
     logic  [7:0] yr_addr; logic [21:0] yr_q;
     assign zoom_addr = ol_busy ? ol_zoom_addr : dr_zoom_addr;
-    k053247_objlist u_ol (
+    k053247_objlist #(.INTRO_COMPAT(MYSTIC_INTRO_COMPAT)) u_ol (
+        .intro_postportrait(mystic && k55regs[13]==8'h50 && k55regs[14]==8'h90),
         .mystic(mystic),
         .stream_enable(mystic),.shdprisel(k55regs[41][5:0]),
         .clk(clk), .reset(reset), .start(obj_build), .done(ol_done), .busy(ol_busy),

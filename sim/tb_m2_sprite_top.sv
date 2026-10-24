@@ -127,6 +127,7 @@ module tb_m2_sprite_top (
     logic  [7:0] yr_addr; logic [21:0] yr_q;
     assign zoom_addr = ol_busy ? ol_zoom_addr : dr_zoom_addr;
     k053247_objlist u_ol (
+        .intro_postportrait(1'b0),
 `ifndef M2_SPRITE_LEGACY
         .mystic(mystic),
         .stream_enable(1'b0),.shdprisel(6'h3f),

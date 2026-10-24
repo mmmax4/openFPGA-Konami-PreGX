@@ -916,3 +916,6 @@ set_instance_assignment -name AUTO_SHIFT_REGISTER_RECOGNITION OFF -to "core_top:
 # K054539's channel decode at seed 2).  AUTO FIT works harder only where
 # timing is not met.
 set_global_assignment -name FITTER_EFFORT "AUTO FIT"
+
+# Explicit private experimental intro workaround; normal builds omit this macro.
+set_global_assignment -name VERILOG_MACRO "MYSTIC_INTRO_COMPAT=1"
