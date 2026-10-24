@@ -1,0 +1,25 @@
+{
+  "size": [
+    521,
+    165
+  ],
+  "visible_sets": [
+    "gaiapols",
+    "mystwarr"
+  ],
+  "master_sha256": "0024f3db3f656aabb4db150dde8f240207b880ad5fa84163bd07127d99888274",
+  "source_sha256": "ecc9da1018f4b5b4709d49bb26e9553e0e56739391f064fb15bf25895c189054",
+  "native_sha256": "2f02cccc901c42c847372c246daa4baab30743fdef875502f3c03230b4380e4e",
+  "original_slots": {
+    "gaiapols": "upper left, including existing KONAMI box",
+    "mystwarr": "center, existing crest and bottom subtitle",
+    "viostorm": "upper center",
+    "mtlchamp": "upper right",
+    "metamrph": "lower left",
+    "mmaulers": "lower right"
+  },
+  "policy": "Show only playable profiles. Restore each additional logo from the complete original design in its original slot when that game becomes playable. Preserve positions and sizes; never redistribute or center remaining logos.",
+  "master_preserved": true,
+  "source": "docs/images/banner.png",
+  "native": "pkg/pocket/Platforms/_images/pregx.bin"
+}

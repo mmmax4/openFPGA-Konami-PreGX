@@ -1,5 +1,7 @@
 # Konami pre-GX — Analogue Pocket openFPGA
 
+![Konami pre-GX: currently playable games](docs/images/banner.png)
+
 A multi-game Konami arcade core for **Analogue Pocket**, by **mmmax4**, based on
 [plasticbugs/Scott's Gaiapolis core](https://github.com/plasticbugs/analogue-pocket-gaiapolis).
 
@@ -22,6 +24,10 @@ currently playable.** The other games below are development goals.
 | Metamorphic Force (ver EAA) | Planned |
 | Martial Champion (ver EAB) | Planned |
 | Monster Maulers (ver EAA) | Planned |
+
+The banner shows the two currently playable games. Each additional logo will
+return to its original position when its game becomes playable; see
+[banner layout](docs/BANNER.md).
 
 Planned profiles are not exposed as playable selections. Additional revisions
 and clones are not automatically supported.
