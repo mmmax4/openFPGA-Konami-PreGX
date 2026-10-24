@@ -9,8 +9,8 @@
       "description": "Konami pre-GX: Gaiapolis / Mystic Warriors",
       "author": "mmmax4",
       "url": "https://github.com/mmmax4/openFPGA-Konami-PreGX",
-      "version": "0.2.0-m2-pocket04",
-      "date_release": "2026-10-23"
+      "version": "0.2.0",
+      "date_release": "2026-10-24"
     },
     "framework": {
       "target_product": "Analogue Pocket",

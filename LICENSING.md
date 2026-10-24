@@ -1,5 +1,12 @@
 # Licensing
 
+## Noncommercial use request
+
+The maintainer requests noncommercial use and free sharing; see
+[the request and its limits](NONCOMMERCIAL_REQUEST.md). This does not relicense
+GPL-covered code or add restrictions to third-party grants. Existing licenses
+and notices below remain applicable.
+
 This is a mixed source tree. The upstream Gaiapolis project declares GNU GPLv3;
 the top-level GPL text covers applicable project code and mmmax4's additions.
 Original per-file terms and copyright notices remain authoritative. Scott's

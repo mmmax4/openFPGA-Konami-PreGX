@@ -14,6 +14,10 @@ currently playable.** The other games below are development goals.
   <img src="docs/images/mystic-warriors-title.png" height="224" alt="Mystic Warriors title captured on Analogue Pocket">
 </p>
 
+**Maintainer request:** please share this port free of charge and use it for
+noncommercial purposes. This is separate from the existing software licenses;
+see [the request and its limits](NONCOMMERCIAL_REQUEST.md).
+
 ## Game support
 
 | Game / verified target revision | Current status |
@@ -63,8 +67,11 @@ The Sunset Riders billboard below is a scene **inside Mystic Warriors**.
 
 ## Source and setup
 
-This is a **development source repository**; no compiled binary release is
-published with this initial snapshot. See [build instructions](docs/BUILD.md),
+Version **0.2.0** is prepared from the tested **Pocket04** hardware with the
+two-game banner. **A public binary release is pending review of inherited
+Analogizer controller terms alongside GPL components.** No binary download is
+published yet. Release names use the version number only; see
+[release status and changes](CHANGELOG.md). See [build instructions](docs/BUILD.md),
 [ROM setup](docs/ROM_SETUP.md), [validation scope](docs/VALIDATION.md),
 [credits](CREDITS.md) and [licensing](LICENSING.md).
 

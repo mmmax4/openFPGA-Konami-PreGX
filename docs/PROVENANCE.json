@@ -181,5 +181,13 @@
     "native_sha256": "2f02cccc901c42c847372c246daa4baab30743fdef875502f3c03230b4380e4e",
     "layout": "config/banner-layout.json",
     "hardware_changed": false
+  },
+  "release_candidate": {
+    "version": "0.2.0",
+    "hardware_build": "M2 Pocket04",
+    "status": "prepared; public binary distribution pending inherited-license review",
+    "raw_rbf_sha256": "63966746e84bd896609e4fc4ca86afbc01fa948a3b837f44188373d8ee5cf174",
+    "pocket_rbf_sha256": "1d3de45be09af971b6abf50e7d6db8b906e13b2be8073c74bb7bc1813b22c2f6",
+    "new_hardware_build": false
   }
 }
