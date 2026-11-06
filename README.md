@@ -11,6 +11,14 @@ and preserves Mystic Warriors' confirmed intro-name workaround from 0.2.1.
 The missing sprite rows seen in earlier Violent Storm builds are confirmed
 resolved in Pocket gameplay and the final attract/demo scene.
 
+## Title screens
+
+<p align="center">
+<img src="docs/images/gaiapolis-title.png" height="224" alt="Gaiapolis title screen on Pocket">
+<img src="docs/images/mystic-warriors-title.png" height="224" alt="Mystic Warriors title screen on Pocket">
+<img src="docs/images/violent-storm-title.png" height="224" alt="Violent Storm title screen on Pocket">
+</p>
+
 ## Game support
 
 | Game / verified target revision | Status |
@@ -18,9 +26,12 @@ resolved in Pocket gameplay and the final attract/demo scene.
 | **Gaiapolis (ver EAF)** | **Playable, tested on Pocket**; vertical presentation |
 | **Mystic Warriors (ver EAA)** | **Playable, tested on Pocket**; intro-name workaround retained |
 | **Violent Storm (ver EAC)** | **Playable, tested on Pocket**; horizontal presentation |
-| Metamorphic Force (ver EAA) | Planned |
+| **Metamorphic Force (ver EAA)** | **Next game to support** |
 | Martial Champion (ver EAB) | Planned |
 | Monster Maulers (ver EAA) | Planned |
+
+**Next: Metamorphic Force (ver EAA).** Integration is planned; it is not yet a
+playable selection.
 
 Only the three playable profiles appear in the game menu and banner. Other
 revisions and clones are not automatically supported.
@@ -53,21 +64,18 @@ affected final demo scene. The ordinary transition fade in that capture is
 expected. This is a precise scene/gameplay observation, not a complete
 playthrough claim. [Validation details](docs/VALIDATION.md).
 
-The creator Info icon now uses the [mmmax4 GitHub avatar](docs/CREATOR_ICON.md).
 Analogizer CRT/SNAC and high-score persistence remain separately unqualified.
 
-## Pocket screenshots
+## In-game screenshots
 
-Original Pocket captures, exported losslessly with their native pixels and
-orientation. [All 13 captures and provenance](docs/POCKET_0.3.md).
+Gameplay captured on Analogue Pocket, exported losslessly with the original
+pixels and orientation. Additional validation captures are in the
+[documented gallery](docs/POCKET_0.3.md).
 
 <p align="center">
-<img src="docs/images/pocket-0.3/violent-storm-stage2.png" width="384" alt="Violent Storm second-stage action on Pocket">
-<img src="docs/images/pocket-0.3/violent-storm-demo-wade.png" width="384" alt="Violent Storm final demo scene during its ordinary transition fade">
-</p>
-<p align="center">
-<img src="docs/images/pocket-0.3/mystic-warriors-truck.png" width="288" alt="Mystic Warriors truck scene with intro-name workaround preserved">
-<img src="docs/images/pocket-0.3/gaiapolis-gameplay.png" height="224" alt="Gaiapolis vertical gameplay on Pocket">
+<img src="docs/images/mystic-warriors-gameplay.png" width="288" alt="Mystic Warriors in-game combat on Pocket">
+<img src="docs/images/pocket-0.3/violent-storm-stage2.png" width="384" alt="Violent Storm second-stage in-game action on Pocket">
+<img src="docs/images/pocket-0.3/gaiapolis-gameplay.png" height="224" alt="Gaiapolis vertical gameplay after a boss on Pocket">
 </p>
 
 ## Source and credits

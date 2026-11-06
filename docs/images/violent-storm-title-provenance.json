@@ -1,0 +1,13 @@
+{
+  "source": "Original Analogue Pocket title capture, 2026-10-25; historical vio01 screenshot, used for title illustration, not a new release0.3 physical measurement.",
+  "original_filename": "20261025_210645.png",
+  "original_sha256": "9fbd02cdd131d9bd142d37d02fd9bbff46afaff4baabb7e1087da2d81e056835",
+  "export_file": "docs/images/violent-storm-title.png",
+  "export_sha256": "598d3f6a8f968167a582b84cc1178072302f0f02bfec607fbfa3988d50e57f08",
+  "scanlines_sha256": "5dfba97cc67093b29b8f95837f83c8023c6d05815c7cf5410e60ba53c47509b7",
+  "native_dimensions": [
+    384,
+    224
+  ],
+  "original_scanlines_preserved": true
+}

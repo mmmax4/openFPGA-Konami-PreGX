@@ -7,7 +7,7 @@
 - Fixes horizontal sprite gaps and incomplete sprites in the final demo scene.
 - Adapts plasticbugs Gaiapolis 0.3.2 graphics/audio improvements.
 - Preserves Gaiapolis, Mystic Warriors and the 0.2.1 intro-name workaround.
-- Adds the three-game banner, GitHub creator icon and new Pocket captures.
+- Adds the three-game banner and new Pocket captures.
 - Keeps the SD ZIP to used runtime files and one README with required notices;
   corresponding source and ROM builders are a separate download.
 - Gateware remains byte-identical to the tested private candidate; no original
