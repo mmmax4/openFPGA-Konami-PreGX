@@ -5,6 +5,7 @@
 `default_nettype none
 module mystic_rom_readback (
     input logic clk, reset,
+    input logic violent,
     input logic req,                 // held through ack; deassert cancels/drains
     input logic sprite,
     input logic [12:0] offset,        // CPU window WORD offset
@@ -15,7 +16,7 @@ module mystic_rom_readback (
     output logic [15:0] data,
     output logic out_of_range,
     output logic tile_req,
-    output logic [18:0] tile_addr,
+    output logic [19:0] tile_addr,
     input logic tile_ack,
     input logic [31:0] tile_q,
     input logic [7:0] tile_fifth,
@@ -38,8 +39,9 @@ module mystic_rom_readback (
     logic [9:0] cache_bank,bank_remainder;
     logic [4:0] bank_bit;
     wire [10:0] shifted_remainder={bank_remainder,bank_shift[31]};
-    wire [9:0] reduced_remainder=10'((shifted_remainder>=11'd640) ?
-        shifted_remainder-11'd640 : shifted_remainder);
+    wire [10:0] bank_count = violent ? 11'd768 : 11'd640; // region bytes /0x2000, not /0x2800
+    wire [9:0] reduced_remainder=10'((shifted_remainder>=bank_count) ?
+        shifted_remainder-bank_count : shifted_remainder);
     logic [23:0] word_r;
     logic fifth_r;
     logic [1:0] select_r;
@@ -49,6 +51,7 @@ module mystic_rom_readback (
                           (plane5_r ? {10'd0,off_r[12:2]} : {9'd0,off_r[12:1]});
     wire [24:0] spr_lower_word = {1'b0,word_r} +
                        (off_r[2] ? 25'd0 : 25'd2) + {24'd0,off_r[0]};
+    wire [24:0] spr_rng_word = {1'b0,word_r[23:2],2'b00} + (off_r[2] ? 25'd0 : 25'd2) + {23'd0,off_r[1:0]};
     wire [23:0] spr_fifth_byte = {1'b0,word_r[23:1]} + (off_r[2] ? 24'd0 : 24'd1);
     wire [1:0] tile_pair = tile_fifth[(3'd6 - {off_r[1:0],1'b0}) +: 2];
     always_ff @(posedge clk) begin
@@ -86,18 +89,21 @@ module mystic_rom_readback (
                 end
                 TILE_CALC: begin
                     select_r <= off_r[1:0];
-                    if (signed_bank_unsupported || tile_row >= 21'h100000) begin
+                    if (signed_bank_unsupported || tile_row >= (violent ? 21'h133333 : 21'h100000)) begin
                         out_of_range <= 1'b1; data <= '0; ack <= 1'b1; state <= HOLD;
-                    end else if (tile_row >= 21'h080000) begin
+                    end else if (tile_row >= (violent ? 21'h100000 : 21'h080000)) begin
                         // Original canonical erased00 tail is not stored in SDRAM.
                         data <= '0; ack <= 1'b1; state <= HOLD;
                     end else begin
-                        tile_addr <= tile_row[18:0]; tile_req <= 1'b1; state <= TILE_WAIT;
+                        tile_addr <= tile_row[19:0]; tile_req <= 1'b1; state <= TILE_WAIT;
                     end
                 end
                 SPR_CALC: begin
-                    fifth_r <= off_r[1];
-                    if (off_r[1]) begin
+                    fifth_r <= !violent && off_r[1];
+                    if (violent) begin
+                        if (spr_rng_word >= 25'h0400000) begin out_of_range<=1'b1;data<='0;ack<=1'b1;state<=HOLD;end
+                        else begin spr_addr<=spr_rng_word[21:2];select_r<=spr_rng_word[1:0];spr_req<=1'b1;state<=SPR_WAIT;end
+                    end else if (off_r[1]) begin
                         if (spr_fifth_byte >= 24'h100000) begin
                             out_of_range <= 1'b1; data <= '0; ack <= 1'b1; state <= HOLD;
                         end else begin

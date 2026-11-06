@@ -24,7 +24,7 @@ noncommercial license for this project. Keeping their notices does not by itself
 resolve compatibility with GPL components in a compiled release; that release
 still needs its own redistribution review.
 
-The user-supplied banner/icon and requested Pocket screenshots are presentation
+The banner, creator icon and Pocket screenshots are presentation
 assets, separate from the software license. Game artwork, names and characters
 remain their respective owners' works. No game ROM, EEPROM dump, save, video,
 private message or permission screenshot is included.

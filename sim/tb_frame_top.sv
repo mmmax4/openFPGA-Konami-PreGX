@@ -182,7 +182,7 @@ module tb_frame_top (
     assign unsupported = tm_unsup | roz_unsup | overflow;
 
     k056832_tilemap u_tm (
-        .mystic(1'b0), .rom_fifth(8'd0), .category(), .line_nonempty(),
+        .violent(1'b0), .mystic(1'b0), .rom_fifth(8'd0), .category(), .line_nonempty(),
         .clk(clk), .reset(reset), .line_start(line_start), .line(line), .busy(tm_busy),
         .regs(k56regs), .colorbase(tm_colorbase),
         .vram_req(vram_req), .vram_addr(vram_addr), .vram_ack(vram_ack), .vram_q(vram_q),
@@ -200,7 +200,7 @@ module tb_frame_top (
     logic  [7:0] yr_addr; logic [21:0] yr_q;
     assign zoom_addr = ol_busy ? ol_zoom_addr : dr_zoom_addr;
     k053247_objlist u_ol (
-        .intro_postportrait(1'b0),
+        .violent(1'b0), .intro_postportrait(1'b0),
         .mystic(1'b0),
         .stream_enable(1'b0),.shdprisel(6'h3f),
         .clk(clk), .reset(reset), .start(build), .done(build_done), .busy(ol_busy),
@@ -210,7 +210,7 @@ module tb_frame_top (
         .list_idx(list_idx), .list_q(list_q), .count(list_count), .overflow(overflow)
     );
     k053247_draw u_dr (
-        .mystic(1'b0), .rom_fifth(16'b0), .out_effect(),
+        .violent(1'b0), .mystic(1'b0), .rom_fifth(16'b0), .out_effect(),
         .stream_enable(1'b0),.order_valid(),.order_priority(),.order_deferred(),.order_ready(1'b1),
         .fragment_valid(),.fragment_ready(1'b1),.fragment_x(),.fragment_pen(),.fragment_level(),
         .fragment_shadow(),.fragment_table(),.fragment_condition(),.fragment_z(),.fragment_pri(),

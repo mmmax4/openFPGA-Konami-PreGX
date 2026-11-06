@@ -5,11 +5,12 @@
   ],
   "visible_sets": [
     "gaiapols",
-    "mystwarr"
+    "mystwarr",
+    "viostorm"
   ],
   "master_sha256": "0024f3db3f656aabb4db150dde8f240207b880ad5fa84163bd07127d99888274",
-  "source_sha256": "ecc9da1018f4b5b4709d49bb26e9553e0e56739391f064fb15bf25895c189054",
-  "native_sha256": "2f02cccc901c42c847372c246daa4baab30743fdef875502f3c03230b4380e4e",
+  "source_sha256": "04320d98e65540ea3b1e75e158d4597782c61c6e3efa31905918e54a7ff179b7",
+  "native_sha256": "0d525c0e6eb6dac65830b2d9862389208fa26b0ad658449f41532854f1e203e6",
   "original_slots": {
     "gaiapols": "upper left, including existing KONAMI box",
     "mystwarr": "center, existing crest and bottom subtitle",

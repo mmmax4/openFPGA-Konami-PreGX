@@ -41,3 +41,5 @@ set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) "../mod
 set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) "../modules/cpu-tv80/tv80_reg.v"]
 set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) "../modules/cpu-tv80/tv80s.v"]
 set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) "../modules/cpu-tv80/tv80s_cen.v"]
+
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) "k055550.sv"]

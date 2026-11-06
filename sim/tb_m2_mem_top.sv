@@ -40,10 +40,10 @@ module tb_m2_mem_top #(parameter int TEST_SHRINK = 9) (
     wire         cram1_clk, cram1_adv_n, cram1_cre, cram1_ce0_n, cram1_ce1_n, cram1_oe_n, cram1_we_n, cram1_ub_n, cram1_lb_n;
     wire  [16:0] sram_a; wire [15:0] sram_dq; wire sram_oe_n, sram_we_n, sram_ub_n, sram_lb_n;
 
-    gaia_mem #(.TEST_SHRINK(TEST_SHRINK)) dut (
+    gaia_mem #(.TEST_SHRINK(TEST_SHRINK)) dut ( 
         .clk(clk), .clk_sdram(clk), .init(init), .ready(ready), .rd_late(rd_late), .burst_slow(burst_slow),
 `ifndef M2_LEGACY
-        .mystic(mystic), .tile_fifth(tile_fifth), .spr_fifth(spr_fifth), .test_mask(test_mask),
+        .violent(1'b0), .mystic(mystic), .tile_fifth(tile_fifth), .spr_fifth(spr_fifth), .test_mask(test_mask),
 `endif
         .ps_slow(ps_slow), .sram_slow(sram_slow), .sram_slow_wr(sram_slow_wr),
         .test_start(test_start), .test_run(test_run), .test_done(test_done), .test_ok(test_ok), .test_stable(test_stable),
@@ -51,7 +51,13 @@ module tb_m2_mem_top #(parameter int TEST_SHRINK = 9) (
         .dl_we(dl_we), .dl_addr(dl_addr), .dl_data(dl_data),
         .eep_we(eep_we), .eep_addr(eep_addr), .eep_data(eep_data),
         .prog_req(prog_req), .prog_addr(prog_addr), .prog_ack(prog_ack), .prog_q(prog_q),
-        .tile_req(tile_req), .tile_addr(tile_addr), .tile_ack(tile_ack), .tile_q(tile_q),
+        .tile_req(tile_req),
+`ifdef M2_LEGACY
+        .tile_addr(tile_addr),
+`else
+        .tile_addr({1'b0,tile_addr}),
+`endif
+        .tile_ack(tile_ack), .tile_q(tile_q),
         .map_req(map_req), .map_addr(map_addr), .map_ack(map_ack), .map_q(map_q),
         .blk_req(blk_req), .blk_addr(blk_addr), .blk_wr(blk_wr), .blk_idx(blk_idx), .blk_data(blk_data), .blk_ack(blk_ack), .roz_lead(4'd0),
         .spr_req(spr_req), .spr_addr(spr_addr), .spr_ack(spr_ack), .spr_q(spr_q),

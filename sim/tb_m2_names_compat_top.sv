@@ -41,7 +41,7 @@ module tb_m2_names_compat_top(
         end else begin: current_rtl
             // 1: parameter-default bypass, even with flag asserted.
             // 2: feature compiled, hardwired flag off. 3: runtime gate.
-            k053247_objlist #(.INTRO_COMPAT(g!=1)) objects(
+            k053247_objlist #(.INTRO_COMPAT(g!=1)) objects(.violent(1'b0), 
                 .clk(clk),.reset(reset),.start(start),.mystic(mystic),
                 .intro_postportrait(g==2 ? 1'b0 : intro_gate),
                 .stream_enable(stream_enable),.shdprisel(shdprisel),

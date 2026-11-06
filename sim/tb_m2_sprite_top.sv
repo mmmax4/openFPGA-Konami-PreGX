@@ -127,7 +127,7 @@ module tb_m2_sprite_top (
     logic  [7:0] yr_addr; logic [21:0] yr_q;
     assign zoom_addr = ol_busy ? ol_zoom_addr : dr_zoom_addr;
     k053247_objlist u_ol (
-        .intro_postportrait(1'b0),
+        .violent(1'b0), .intro_postportrait(1'b0),
 `ifndef M2_SPRITE_LEGACY
         .mystic(mystic),
         .stream_enable(1'b0),.shdprisel(6'h3f),
@@ -144,6 +144,9 @@ module tb_m2_sprite_top (
     assign out_effect = 2'd0;
 `endif
     k053247_draw u_dr (
+`ifndef M2_SPRITE_LEGACY
+        .violent(1'b0),
+`endif
 `ifndef M2_SPRITE_LEGACY
         .mystic(mystic), .rom_fifth(rom_fifth), .out_effect(out_effect),
         .stream_enable(1'b0),.order_valid(),.order_priority(),.order_deferred(),.order_ready(1'b1),

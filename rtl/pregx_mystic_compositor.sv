@@ -5,6 +5,8 @@
 `default_nettype none
 module pregx_mystic_compositor (
     input logic clk, reset, line_start,
+    input logic violent,
+    input logic [1:0] last_mix,
     input logic [7:0] k55regs[48],
     input logic [15:0] k38regs[16],
     input logic [9:0] alpha1, alpha2, alpha3,
@@ -82,7 +84,7 @@ module pregx_mystic_compositor (
     end
     wire paint_before = have_tile &&
         (!sprite_busy || (order_valid && (order_deferred || next_priority>order_priority)));
-    logic rgb_busy, rgb_ready, sprite_rgb_ready;
+    logic rgb_busy, rgb_ready, sprite_rgb_ready, tile_stream_ready;
     logic rgb_valid;
     logic [8:0] rgb_x;
     logic [10:0] rgb_pen;
@@ -95,18 +97,34 @@ module pregx_mystic_compositor (
     wire [1:0] mix_mask = 2'(mix_on >> {layer,1'b0});
     wire [1:0] tile_mix = (tile_category[layer] & ~mix_mask) |
                            (2'(mix >> {layer,1'b0}) & mix_mask);
-    wire [9:0] tile_level=levels[tile_mix];
+    wire [1:0] vio_internal = 2'(mix >> {layer,1'b0}) & mix_mask;
+    wire [1:0] vio_external = last_mix & ~mix_mask;
+    wire [9:0] vi=levels[vio_internal], ve=levels[vio_external];
+    // Preserve MAME's declared tile additive approximation separately from
+    // the existing Mystic RGB arithmetic. Category is a boolean in Violent.
+    wire [7:0] vi8 = vi[8] ? (vi[7:0]!=8'd255 ? vi[7:0] : 8'd0) : vi[7:0];
+    wire [7:0] ve8 = ve[7:0];
+    wire [9:0] tile_level=violent ? {2'd0,((tile_category[layer]!=2'd0 && ve8!=8'hff) ? ve8 : vi8)} : levels[tile_mix];
     wire tile_accept = tile_opaque[layer] &&
                       !(!tile_level[8] && tile_level[7:0]==8'd0);
     // Keep the synchronous tile RAM address independent of its returned
     // opaque/category data. Tile runs start with an empty RGB pipeline and
     // visit each x once, so even transparent pixels can obey ready directly.
-    wire advance_tile = rgb_ready;
+    // Each tile run starts after !rgb_busy, visits X=0..width-1 once,
+    // and drains completely before another layer/object. No in-flight X can
+    // equal the next X. Keep the generic hazard comparator out of the tile
+    // RAM lookahead path while retaining its actual admission check.
+    wire advance_tile = tile_stream_ready;
+    // synthesis translate_off
+    always_ff @(posedge clk)
+        if(!reset && !line_start && state==TILE_RUN && advance_tile && !rgb_ready)
+            $fatal(1,"Bounded unique-X tile stream violated RGB readiness");
+    // synthesis translate_on
     always_comb begin
         // Reading the next x on the current accepted edge maintains a one-
         // fragment/clock stream through the real registered tile line RAM.
         tile_x=x;
-        if(state==TILE_RUN && advance_tile && x<9'd287) tile_x=x+9'd1;
+        if(state==TILE_RUN && advance_tile && x<(violent ? 9'd383 : 9'd287)) tile_x=x+9'd1;
         rgb_valid=fragment_valid && sprite_enable && state==OBJECTS;
         rgb_x=fragment_x;rgb_pen=fragment_pen[10:0];rgb_level=fragment_level;
         rgb_brightness=object_brightness;
@@ -128,9 +146,10 @@ module pregx_mystic_compositor (
     logic [8:0] shadow_delta[9];
     always_comb for(int c=0;c<9;c++) shadow_delta[c]=k38regs[c+2][8:0];
     pregx_rgb_line accumulator(
-        .clk(clk),.reset(reset),.line_start(line_start),
+        .clk(clk),.reset(reset),.violent(violent),.line_start(line_start),
         .backdrop({k38regs[0][7:0],k38regs[1]}),.shadow_delta(shadow_delta),.noclip(k38regs[15][5]),
         .busy(rgb_busy),.fragment_valid(rgb_valid),.fragment_ready(rgb_ready),
+        .stream_ready(tile_stream_ready),
         .probe_x(fragment_x),.probe_ready(sprite_rgb_ready),
         .fragment_x(rgb_x),.fragment_pen(rgb_pen),.fragment_level(rgb_level),
         .fragment_brightness(rgb_brightness),
@@ -163,7 +182,7 @@ module pregx_mystic_compositor (
             end
             TILE_PRIME: state<=TILE_RUN;
             TILE_RUN: if(advance_tile) begin
-                if(x==9'd287) begin done_tiles[layer]<=1'b1;state<=DRAIN;end
+                if(x==(violent ? 9'd383 : 9'd287)) begin done_tiles[layer]<=1'b1;state<=DRAIN;end
                 else x<=x+9'd1;
             end
             // Even a fully transparent tile may drain immediately. Allow the

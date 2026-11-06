@@ -950,7 +950,7 @@ module core_top
     wire        mem_ready;
     wire host_loaded_s;
     synch_3 sync_loaded(nv_loaded, host_loaded_s, clk_sys);
-    wire mystic_profile, rom_identified, rom_valid, rom_begin;
+    wire violent_profile, mystic_profile, rom_identified, rom_valid, rom_begin;
     // APF family game changes reload the complete RBF. Clock selection is made
     // once the original ROM prefix is known, while machine/video remain reset.
     logic [7:0] clock_settle = 8'd0;
@@ -999,7 +999,7 @@ module core_top
 
     pregx_rom_profile rom_profile (
         .clk(clk_sys),.dl_we(dl_we),.dl_addr(dl_addr),.dl_data(dl_data),
-        .mystic(mystic_profile),.identified(rom_identified),.valid(rom_valid),.begin_image(rom_begin)
+        .violent(violent_profile), .mystic(mystic_profile),.identified(rom_identified),.valid(rom_valid),.begin_image(rom_begin)
     );
 
     //! Controls, active low as the board reads them (docs/hardware.md section 8):
@@ -1013,7 +1013,7 @@ module core_top
     wire [15:0] mystic_p12,mystic_p34;
     wire [7:0] mystic_in0;
     pregx_inputs cabinet (
-        .mystic(mystic_profile),
+        .violent(violent_profile), .mystic(mystic_profile),
         .p1_keys({p1_start,p1_select,p1_btn_r1,p1_btn_l1,p1_btn_y,p1_btn_x,p1_btn_b,p1_btn_a}),
         .p2_keys({p2_start,p2_select,p2_btn_r1,p2_btn_l1,p2_btn_y,p2_btn_x,p2_btn_b,p2_btn_a}),
         .p1_dirs({p1_down|j1_down,p1_up|j1_up,p1_right|j1_right,p1_left|j1_left}),
@@ -1024,7 +1024,7 @@ module core_top
         .p4_dirs({p4_down|j4_down,p4_up|j4_up,p4_right|j4_right,p4_left|j4_left}),
         .test_manual(mod_sw1[0] | svc_sw),
         .test_select(mod_sw2[3:0]), .service_select(mod_sw2[7:4]),
-        .dips(dip_sw0[4:0]), .in0_p1(in0_p1), .in1(in1), .p2(p2),
+        .dips({dip_sw1[0],dip_sw0}), .in0_p1(in0_p1), .in1(in1), .p2(p2),
         .mystic_p12(mystic_p12),.mystic_p34(mystic_p34),.mystic_in0(mystic_in0)
     );
 
@@ -1040,7 +1040,7 @@ module core_top
     wire        prog_req, prog_ack, tile_req, tile_ack, map_req, map_ack, spr_req, spr_ack;
     wire        blk_req, blk_wr, blk_ack; wire [15:0] blk_addr, blk_data; wire [5:0] blk_idx; wire [3:0] roz_lead;
     wire        snd_req, snd_ack, pcm_req, pcm_ack;
-    wire [22:1] prog_addr; wire [18:0] tile_addr; wire [19:0] map_addr; wire [19:0] spr_addr;
+    wire [22:1] prog_addr; wire [19:0] tile_addr; wire [19:0] map_addr; wire [19:0] spr_addr;
     wire [17:0] snd_addr; wire [21:0] pcm_addr;
     wire [15:0] prog_q, map_q; wire [31:0] tile_q; wire [63:0] spr_q; wire [7:0] snd_q, pcm_q;
     wire        vram_req, vram_we, vram_ack; wire [15:0] vram_addr, vram_wdata, vram_q; wire [1:0] vram_be;
@@ -1057,7 +1057,7 @@ module core_top
     wire [7:0] tile_fifth;
     wire [15:0] spr_fifth;
     gaia_mem u_mem (
-        .mystic(mystic_profile), .test_mask(memory_test_mask), .tile_fifth(tile_fifth), .spr_fifth(spr_fifth),
+        .violent(violent_profile), .mystic(mystic_profile), .test_mask(memory_test_mask), .tile_fifth(tile_fifth), .spr_fifth(spr_fifth),
         .clk(clk_sys), .clk_sdram(clk_sdram), .init(mem_init), .ready(mem_ready),
         .rd_late(ga_rd_late), .burst_slow(ga_burst_slow), .ps_slow(ga_ps_slow), .sram_slow(ga_sram_slow), .sram_slow_wr(ga_sram_slow_wr),
         .test_start(test_start), .test_run(test_run), .test_done(test_done), .test_ok(test_ok), .test_stable(test_stable),
@@ -1100,7 +1100,7 @@ module core_top
     localparam bit INTRO_COMPAT_BUILD=1'b0;
 `endif
     gaia_core #(.HEXDIR("../rtl/data"),.MYSTIC_INTRO_COMPAT(INTRO_COMPAT_BUILD)) ga (
-        .mystic(mystic_profile), .mystic_p12(mystic_p12), .mystic_p34(mystic_p34), .mystic_in0(mystic_in0),
+        .violent(violent_profile), .mystic(mystic_profile), .mystic_p12(mystic_p12), .mystic_p34(mystic_p34), .mystic_in0(mystic_in0),
         .tile_fifth(tile_fifth), .spr_fifth(spr_fifth),
         .clk(clk_sys), .reset(ga_reset), .pause(pause_core), .pix_sync(pix_sync), .vid_reset(~pll_locked_sys | ~profile_clock_ready),
         .prog_req(prog_req), .prog_addr(prog_addr), .prog_ack(prog_ack), .prog_q(prog_q),
@@ -1123,7 +1123,7 @@ module core_top
 
     //! Preserve Gaia modes0/1 and Mystic modes2/3; Mystic Fill screen uses4.
     wire [1:0] aspect_sel = mod_sw0[2:1];
-    assign video_preset = (mystic_profile && aspect_sel == 2'd2) ? 3'd4
+    assign video_preset = violent_profile ? (aspect_sel==2'd2 ? 3'd7 : aspect_sel==2'd1 ? 3'd6 : 3'd5) : (mystic_profile && aspect_sel == 2'd2) ? 3'd4
                          : {1'b0,mystic_profile,(aspect_sel == 2'd1)};
 
     //! ------------------------------------------------------------------

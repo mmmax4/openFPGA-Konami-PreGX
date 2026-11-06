@@ -36,6 +36,7 @@ module k056832_tilemap #(
 ) (
     input  logic        clk,
     input  logic        reset,
+    input  logic        violent,
     input  logic        mystic,       // stable profile: five planes,288px at x24
 
     // Begin rendering the line that is displayed next. `line` is its raster y.
@@ -68,14 +69,15 @@ module k056832_tilemap #(
     output logic [11:0] pix    [4],
     output logic  [3:0] opaque,
     output logic  [1:0] category [4], // raw attribute[3:2], preserved through line RAM
+    output logic [1:0] last_mix,
     output wire   [3:0] line_nonempty, // conservative scan-bank opacity summary
 
     output logic        unsupported
 );
     // Profile settles long before any line is released. Keep the render
     // decoders local instead of driving them through the board-wide net.
-    (* preserve, dont_merge *) logic render_mystic;
-    always_ff @(posedge clk) render_mystic <= mystic;
+    (* preserve, dont_merge *) logic render_mystic, render_violent;
+    always_ff @(posedge clk) begin render_mystic<=mystic;render_violent<=violent;end
     // ------------------------------------------------------------- registers
     // flip/palette bit split, k056832_device::get_tile_info
     wire [1:0] fbits = regs[3][7:6];
@@ -96,10 +98,19 @@ module k056832_tilemap #(
     localparam logic signed [9:0] OFFS_Y [4] = '{ -10'sd1, 10'sd0, 10'sd0, 10'sd0 };
 
     localparam logic signed [9:0] MW_OFFS_X [4] = '{-10'sd5,-10'sd3,-10'sd1,10'sd0};
-    wire [LB_AW:0] render_width = render_mystic ? (LB_AW+1)'(288) : (LB_AW+1)'(VIS_W);
+    wire [LB_AW:0] render_width = render_violent ? (LB_AW+1)'(384) : render_mystic ? (LB_AW+1)'(288) : (LB_AW+1)'(VIS_W);
     wire [11:0] visible_x0 = render_mystic ? 12'd24 : 12'(VIS_X0);
-    wire signed [9:0] layer_offs_x = render_mystic ? MW_OFFS_X[cur_l] : OFFS_X[cur_l];
-    wire signed [9:0] layer_offs_y = render_mystic ? 10'sd0 : OFFS_Y[cur_l];
+    localparam logic signed [9:0] VS_OFFS_X [4] = '{-10'sd1,10'sd1,10'sd3,10'sd4};
+    // Fold the profile/layer constants before the live scroll adder.
+    localparam logic [11:0] GX_X_ORIGIN [4] = '{12'(VIS_X0 - int'(OFFS_X[0])), 12'(VIS_X0 - int'(OFFS_X[1])), 12'(VIS_X0 - int'(OFFS_X[2])), 12'(VIS_X0 - int'(OFFS_X[3]))};
+    localparam logic [11:0] MW_X_ORIGIN [4] = '{12'(24 - int'(MW_OFFS_X[0])), 12'(24 - int'(MW_OFFS_X[1])), 12'(24 - int'(MW_OFFS_X[2])), 12'(24 - int'(MW_OFFS_X[3]))};
+    localparam logic [11:0] VS_X_ORIGIN [4] = '{12'(VIS_X0 - int'(VS_OFFS_X[0])), 12'(VIS_X0 - int'(VS_OFFS_X[1])), 12'(VIS_X0 - int'(VS_OFFS_X[2])), 12'(VIS_X0 - int'(VS_OFFS_X[3]))};
+    localparam logic [11:0] MW_VS_X_ORIGIN [4] = '{12'(24 - int'(VS_OFFS_X[0])), 12'(24 - int'(VS_OFFS_X[1])), 12'(24 - int'(VS_OFFS_X[2])), 12'(24 - int'(VS_OFFS_X[3]))};
+    wire [11:0] layer_x_origin = render_violent
+        ? (render_mystic ? MW_VS_X_ORIGIN[cur_l] : VS_X_ORIGIN[cur_l])
+        : (render_mystic ? MW_X_ORIGIN[cur_l] : GX_X_ORIGIN[cur_l]);
+    wire signed [9:0] layer_offs_x = render_violent ? VS_OFFS_X[cur_l] : render_mystic ? MW_OFFS_X[cur_l] : OFFS_X[cur_l];
+    wire signed [9:0] layer_offs_y = (render_mystic || render_violent) ? 10'sd0 : OFFS_Y[cur_l];
 
     wire flip_global = |regs[0][5:4];
 
@@ -159,6 +170,28 @@ module k056832_tilemap #(
     rst_t rst;
     logic [15:0] attr_v, code_v;     // V's result
     logic  [3:0] npx_v;
+    // Immutable ROM rows may recur after intervening tiles/layers. Keeping
+    // eight raw rows avoids one-entry thrashing in dense Violent Storm scenes.
+    // Attribute/color/category still decode independently for every tile.
+    localparam int ROW_CACHE_ENTRIES = 8;
+    logic [ROW_CACHE_ENTRIES-1:0] row_cache_valid;
+    logic [2:0] row_cache_replace;
+    (* ramstyle = "logic" *) logic [18:0] row_cache_tag [ROW_CACHE_ENTRIES];
+    (* ramstyle = "logic" *) logic [31:0] row_cache_data [ROW_CACHE_ENTRIES];
+    (* ramstyle = "logic" *) logic [7:0] row_cache_fifth [ROW_CACHE_ENTRIES];
+    wire [18:0] requested_row = {code,3'd0} + {16'd0,attr_fy};
+    logic [ROW_CACHE_ENTRIES-1:0] row_cache_hits;
+    logic [31:0] row_cache_selected;
+    logic [7:0] row_cache_selected_fifth;
+    always_comb begin
+        row_cache_hits='0;
+        row_cache_selected='0;row_cache_selected_fifth='0;
+        for(int c=0;c<ROW_CACHE_ENTRIES;c++) begin
+            row_cache_hits[c]=row_cache_valid[c] && row_cache_tag[c]==requested_row;
+            row_cache_selected |= row_cache_data[c] & {32{row_cache_hits[c]}};
+            row_cache_selected_fifth |= row_cache_fifth[c] & {8{row_cache_hits[c]}};
+        end
+    end
     logic [15:0] attr, code;         // R's copy; attr feeds the decode below
     logic  [3:0] npx_r;
     logic [31:0] rowdata_r;
@@ -198,7 +231,7 @@ module k056832_tilemap #(
     wire [5:0] attr_col6 = (attr[5:0] & sm_palm1) | (attr_shifted[5:0] & sm_palm2);
     /* verilator lint_on UNUSEDSIGNAL */
     wire [3:0] attr_color = render_mystic ? attr_col6[4:1] : attr_col6[5:2];   // the game's 4bpp tile callback drops bits 1:0
-    wire [2:0] attr_fy   = (attr[flips4 + 4'd1] && (!render_mystic || regs[1][fliprsel+4'd1])) ? ~vy[2:0] : vy[2:0];
+    wire [2:0] attr_fy   = (attr[flips4 + 4'd1] && (!(render_mystic || render_violent) || regs[1][fliprsel+4'd1])) ? ~vy[2:0] : vy[2:0];
 
     wire [2:0] fx = flipx ? ~vx[2:0] : vx[2:0];
     wire [3:0] pixel = rowdata[31 - {fx, 2'b00} -: 4];
@@ -216,7 +249,7 @@ module k056832_tilemap #(
     wire  [1:0] scrollmode = regs[5][smsel +: 2];
     // Pinned current K056832 uses XY for modes 1/3. Preserve the Gaia
     // historical interpretation; Mystic captures exercise mode 1 directly.
-    wire xy_mode = (scrollmode == 2'd3) || (render_mystic && scrollmode == 2'd1);
+    wire xy_mode = (scrollmode == 2'd3) || ((render_mystic || render_violent) && scrollmode == 2'd1);
     wire  [3:0] scrollbank = {regs[24][4:3], regs[24][1:0]};
     // word index inside the scroll page: layer*1024, then line*2+1 (mode 0)
     // or (line/8)*16+1 (mode 2)
@@ -235,7 +268,7 @@ module k056832_tilemap #(
     wire [11:0] wrap_x = ({10'd0, colspan} + 12'd1) << 9;
     wire [10:0] wrap_y = ({ 9'd0, rowspan} + 11'd1) << 8;
     /* verilator lint_on UNUSEDSIGNAL */
-    wire [11:0] vx0 = $unsigned(scroll_x[11:0]) + visible_x0;
+    wire [11:0] vx0 = scroll_reg[11:0] + layer_x_origin;
     wire [10:0] vy0 = $unsigned(scroll_y[10:0]) + {2'd0, line};
 
     // pixels the group at fvx contributes: to the end of its tile, or of the line
@@ -266,6 +299,7 @@ module k056832_tilemap #(
 
     always_ff @(posedge clk) begin
         if (reset) begin
+            last_mix<=2'd0;row_cache_valid<='0;row_cache_replace<=3'd0;
             st <= S_IDLE; busy <= 1'b0; bank <= 1'b0;
             rom_req <= 1'b0; vram_req <= 1'b0; unsupported <= 1'b0; cur_l <= 2'd0;
             vst <= V_IDLE; rst <= R_IDLE; e_busy <= 1'b0; v_done <= 1'b0;
@@ -338,12 +372,23 @@ module k056832_tilemap #(
                         R_REQ: begin
                             flipx_r  <= regs[1][fliprsel] & attr_flip;
                             color_r  <= colorbase[cur_l] | {4'd0, attr_color};
-                            category_r <= render_mystic ? attr[3:2] : 2'd0;
+                            if (render_violent && attr[1:0]!=2'd0) last_mix<=attr[1:0];
+                            category_r <= render_violent ? attr[1:0] : render_mystic ? attr[3:2] : 2'd0;
                             rom_addr <= {code, 3'd0} + {16'd0, attr_fy};
-                            rom_req  <= 1'b1;
-                            rst <= R_WAIT;
+                            if(render_violent && (|row_cache_hits)) begin
+                                rowdata_r<=row_cache_selected;fifth_r<=row_cache_selected_fifth;
+                                rom_req<=1'b0;rst<=R_HOLD;
+                            end else begin rom_req<=1'b1;rst<=R_WAIT;end
                         end
-                        R_WAIT: if (rom_ack) begin rowdata_r <= rom_q; fifth_r <= rom_fifth; rom_req <= 1'b0; rst <= R_HOLD; end
+                        R_WAIT: if (rom_ack) begin
+                            if(render_violent) begin
+                                row_cache_valid[row_cache_replace]<=1'b1;
+                                row_cache_tag[row_cache_replace]<=rom_addr;
+                                row_cache_data[row_cache_replace]<=rom_q;
+                                row_cache_fifth[row_cache_replace]<=rom_fifth;
+                                row_cache_replace<=row_cache_replace+3'd1;
+                            end
+                            rowdata_r <= rom_q; fifth_r <= rom_fifth; rom_req <= 1'b0; rst <= R_HOLD; end
                         R_HOLD: if (r_to_e) rst <= R_IDLE;
                         default: rst <= R_IDLE;
                     endcase

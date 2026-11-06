@@ -7,7 +7,7 @@ module tb_m2_overlay(input wire clk,clk_vid,reset,mystic,
  always @(posedge clk)begin vs<=vt;vd<=vs;end
  wire cp;wire scan,ls,pre,over,hs,vblank,hb;wire [8:0]rl,px,hc,vc;wire pv;wire [2:0]ovsrc;
  clk_enables ce(.clk(clk),.reset(reset),.pix_sync(vs^vd),.mystic(mystic),.cen_16m(),.cen_8m(),.cen_pix(cp),.cen_48k());
- gaia_video raster(.clk(clk),.reset(reset),.mystic(mystic),.cen_pix(cp),.scanline_start(scan),
+ gaia_video raster(.violent(1'b0), .clk(clk),.reset(reset),.mystic(mystic),.cen_pix(cp),.scanline_start(scan),
  .line_start(ls),.render_line(rl),.prestart(pre),.renderers_busy(3'd0),.overrun(over),.overrun_src(ovsrc),
  .px(px),.px_valid(pv),.hcount(hc),.vcount(vc),.hsync(hs),.vsync(vblank),.de(de),.hblank(hb),.vblank(),.vblank_rise());
  reg [7:0]k55[48];reg[15:0]k38[16];reg[11:0]pens[4];wire[10:0]addr;

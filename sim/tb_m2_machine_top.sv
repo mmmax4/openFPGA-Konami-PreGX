@@ -72,7 +72,7 @@ module tb_m2_machine_top #(
 
     wire [7:0] tile_fifth;wire [15:0] spr_fifth;
     gaia_mem u_mem (
-        .mystic(1'b1), .test_mask(), .tile_fifth(tile_fifth), .spr_fifth(spr_fifth),
+        .violent(1'b0), .mystic(1'b1), .test_mask(), .tile_fifth(tile_fifth), .spr_fifth(spr_fifth),
         .clk(clk), .clk_sdram(clk), .init(reset), .ready(mem_ready), .rd_late(1'b1), .burst_slow(1'b0),
         .ps_slow(1'b0), .sram_slow(1'b0), .sram_slow_wr(1'b0),
         .test_start(1'b0), .test_run(), .test_done(), .test_ok(), .test_stable(), .vram_ok(), .vram_bad(),
@@ -120,7 +120,7 @@ module tb_m2_machine_top #(
 
     // the core waits for the SDRAM, as core_top does
     wire core_reset = reset | ~mem_ready;
-    gaia_core #(.HEXDIR("../rtl/data"), .STEP_COST_BUS(STEP_COST_BUS), .STEP_COST_INT(STEP_COST_INT)) u_core (
+    gaia_core #(.HEXDIR("../rtl/data"), .STEP_COST_BUS(STEP_COST_BUS), .STEP_COST_INT(STEP_COST_INT)) u_core (.violent(1'b0), 
         .mystic(1'b1), .mystic_p12({p2,in0_p1[7:0]}), .mystic_p34(16'hffff), .mystic_in0({6'h3f,in0_p1[9:8]}),
         .tile_fifth(tile_fifth), .spr_fifth(spr_fifth),
         .clk(clk), .pause(pause), .reset(core_reset), .pix_sync(1'b0), .vid_reset(reset),

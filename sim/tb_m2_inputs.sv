@@ -6,7 +6,7 @@ module tb_m2_inputs (
  output wire [15:0] in0_p1,legacy_in0,mystic_p12,mystic_p34,
  output wire [7:0] in1,p2,legacy_in1,legacy_p2,mystic_in0
 );
- pregx_inputs dut(.*);
+ pregx_inputs dut(.violent(1'b0),.dips({4'd0,dips}),.*);
  gaia_inputs legacy(.p1_keys(p1_keys),.p2_keys(p2_keys),.p1_dirs(p1_dirs),.p2_dirs(p2_dirs),
  .test_manual(test_manual),.test_select(test_select),.service_select(service_select),.dips(dips[1:0]),
  .in0_p1(legacy_in0),.in1(legacy_in1),.p2(legacy_p2));

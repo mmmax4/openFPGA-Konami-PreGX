@@ -14,6 +14,7 @@ module gaia_sound #(
 ) (
     input  logic        clk,
     input  logic        reset,
+    input  logic        violent,
     input  logic        mystic,         // stable board profile through reset/run
     input  logic        cen_8m,
     input  logic        cen_48k,
@@ -93,6 +94,17 @@ module gaia_sound #(
     wire sel_lat  = (A[15:2]  == 14'b1111_0000_0000_00);              // f000-f003
     wire sel_ctrl = (A == 16'hf800);
 
+    // The four-clock CPU write-strobe delay already settles this static
+    // prefix. Read selects stay live, including streaming P_DONE release.
+    (* preserve, dont_merge *) logic write_sel_k1, write_sel_k2;
+    // The TV80 resets asynchronously to address zero. Clear the prepared
+    // write selections on that same reset, before a pending WR can touch
+    // the K539 channel RAM (which intentionally retains bytes on reset).
+    always_ff @(posedge clk or posedge reset) begin
+        if (reset) begin write_sel_k1 <= 1'b0; write_sel_k2 <= 1'b0; end
+        else begin write_sel_k1 <= sel_k1; write_sel_k2 <= sel_k2; end
+    end
+
     // ------------------------------------------------------------ RAM
     logic [7:0] ram [8192];
     logic [7:0] ram1 [512], ram2 [512];
@@ -167,15 +179,16 @@ module gaia_sound #(
     // Mystic board: K1ch0..3=0.8,ch4..7=2; K2all=0.5. The shared engine
     // selects these fixed Q2.14 constants at runtime from the stable profile.
     k054539 #(.HEXDIR(HEXDIR), .GAIN_Q14({16'h8000, 16'h8000, 16'h8000, 16'h4000, 16'h4000, 16'h4000, 16'h4000, 16'h4000}),
+        .GAIN_Q14_VIO({16'h8000,16'h8000,16'h8000,16'h8000,16'h4000,16'h4000,16'h4000,16'h4000}),
         .GAIN_Q14_ALT({16'h8000,16'h8000,16'h8000,16'h8000,16'h3333,16'h3333,16'h3333,16'h3333})) u_k1 (
-        .clk(clk), .reset(reset), .cen_48k(cen_48k), .gain_alt(mystic),
-        .cs(sel_k1), .wr(mem_wr), .rd(mem_rd), .addr(A[9:0]), .wdata(cpu_do), .rdata(k1_q), .rd_stall(k1_stall),
+        .clk(clk), .reset(reset), .cen_48k(cen_48k), .gain_alt(mystic), .gain_vio(violent),
+        .cs(1'b1), .wr(mem_wr && write_sel_k1), .rd(mem_rd && sel_k1), .addr(A[9:0]), .wdata(cpu_do), .rdata(k1_q), .rd_stall(k1_stall),
         .rom_req(p1_req), .rom_addr(p1_addr), .rom_ack(p1_ack), .rom_q(pcm_q),
         .timer_out(timer1), .snd_l(l1), .snd_r(r1)
     );
     k054539 #(.HEXDIR(HEXDIR), .GAIN_Q14_ALT({8{16'h2000}})) u_k2 (
-        .clk(clk), .reset(reset), .cen_48k(cen_48k), .gain_alt(mystic),
-        .cs(sel_k2), .wr(mem_wr), .rd(mem_rd), .addr(A[9:0]), .wdata(cpu_do), .rdata(k2_q), .rd_stall(k2_stall),
+        .clk(clk), .reset(reset), .cen_48k(cen_48k), .gain_alt(mystic), .gain_vio(violent),
+        .cs(1'b1), .wr(mem_wr && write_sel_k2), .rd(mem_rd && sel_k2), .addr(A[9:0]), .wdata(cpu_do), .rdata(k2_q), .rd_stall(k2_stall),
         .rom_req(p2_req), .rom_addr(p2_addr), .rom_ack(p2_ack), .rom_q(pcm_q),
         .timer_out(timer2), .snd_l(l2), .snd_r(r2)
     );
@@ -204,9 +217,20 @@ module gaia_sound #(
     end
     assign wait_n = !((rom_sel && !rom_have) || k1_stall || k2_stall);
 
-    // mix: the two chips sum; the K054321 volume is applied by the platform
-    assign snd_l = l1 + l2;
-    assign snd_r = r1 + r2;
+    // mix: Gaia0.3.2 follows the board's stereo routing and saturates the
+    // two-chip sum. Confirmed Mystic/Vio routing and arithmetic stay intact.
+    // Adapted from plasticbugs c1a662e6 / decoryah ebcb5932, GPL-3.0.
+    wire accurate_gaia = !(mystic || violent);
+    function automatic [15:0] sat_add(input logic [15:0] a, b);
+        logic signed [16:0] sum;
+        begin
+            sum = $signed({a[15], a}) + $signed({b[15], b});
+            sat_add = sum > 17'sd32767 ? 16'h7fff :
+                      sum < -17'sd32768 ? 16'h8000 : sum[15:0];
+        end
+    endfunction
+    assign snd_l = accurate_gaia ? sat_add(r1, r2) : l1 + l2;
+    assign snd_r = accurate_gaia ? sat_add(l1, l2) : r1 + r2;
     /* verilator lint_off UNUSEDSIGNAL */
     wire unused = ^{timer2, sound_ctrl[7:5]};
     /* verilator lint_on UNUSEDSIGNAL */

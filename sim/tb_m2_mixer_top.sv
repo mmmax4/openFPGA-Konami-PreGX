@@ -75,7 +75,7 @@ module tb_m2_mixer_top(
  logic[8:0] render_line,px;
  logic[2:0] overrun_src;
  clk_enables cen(.clk(clk),.reset(vid_reset),.pix_sync(pix_sync),.mystic(1'b1),.cen_pix(cen_pix),.cen_16m(cen16),.cen_8m(cen8),.cen_48k(cen48));
- gaia_video video(.clk(clk),.reset(vid_reset),.mystic(1'b1),.cen_pix(cen_pix),.scanline_start(scanline_start),
+ gaia_video video(.violent(1'b0), .clk(clk),.reset(vid_reset),.mystic(1'b1),.cen_pix(cen_pix),.scanline_start(scanline_start),
   .line_start(sprite_start),.render_line(render_line),.prestart(prestart),.renderers_busy({tile_busy,1'b0,sprite_busy|compositor_busy}),
   .overrun(overrun),.overrun_src(overrun_src),.px(px),.px_valid(px_valid),.hcount(hcount),.vcount(vcount),
   .hsync(ga_hs),.vsync(ga_vs),.de(de),.hblank(ga_hb),.vblank(ga_vb),.vblank_rise());
@@ -99,8 +99,8 @@ module tb_m2_mixer_top(
  logic[31:0] tq;logic[63:0] sq;logic[7:0] tfifth;logic[15:0] sfifth;
  logic[11:0] tile_pen[4];logic[1:0] category[4];logic[3:0] opaque,tile_nonempty;
  logic[8:0] tile_x;
- k056832_tilemap tile(.clk(clk),.reset(reset),.mystic(1'b1),.rom_fifth(tfifth),.category(category),
-  .line_nonempty(tile_nonempty),
+ k056832_tilemap tile(.violent(1'b0), .clk(clk),.reset(reset),.mystic(1'b1),.rom_fifth(tfifth),.category(category),
+  .line_nonempty(tile_nonempty), .last_mix(),
   .line_start(tile_start),.line(tile_line),.busy(tile_busy),.regs(k56),.colorbase(cb),
   .vram_req(tvreq),.vram_addr(tva),.vram_ack(tvack),.vram_q(vq),
   .rom_req(tr),.rom_addr(taddr),.rom_ack(ta),.rom_q(tq),.px(tile_x),.pix(tile_pen),.opaque(opaque),.unsupported(unsupported));
@@ -123,14 +123,14 @@ module tb_m2_mixer_top(
 `else
  localparam bit INTRO_COMPAT_BUILD=1'b0;
 `endif
- k053247_objlist #(.INTRO_COMPAT(INTRO_COMPAT_BUILD)) objects(
+ k053247_objlist #(.INTRO_COMPAT(INTRO_COMPAT_BUILD)) objects(.violent(1'b0), 
         .intro_postportrait(k55[13]==8'h50 && k55[14]==8'h90),.clk(clk),.reset(reset),.mystic(1'b1),.stream_enable(1'b1),.shdprisel(k55[41][5:0]),
   .start(build),.done(build_done),.busy(ol_busy),.opset(k47[6]),.objset1(k46[5]),.shadowon(shadowon),.shdpri(shdpri),
   .k46_offy({k46[2],k46[3]}),.zoom_addr(ol_za),.zoom_q(zoom_q),.yr_addr(yr_addr),.yr_q(yr_q),
   .ram_addr(ol_ra),.ram_q(ram_q),.list_idx(list_idx),.list_q(list_q),.count(object_count),.overflow(overflow));
  logic[7:0] order_priority,fragment_z,fragment_pri;logic order_deferred,fragment_shadow;
  logic[11:0] fragment_pen;logic[9:0] fragment_level;logic[1:0] fragment_table,fragment_condition;
- k053247_draw draw(.clk(clk),.reset(reset),.mystic(1'b1),.rom_fifth(sfifth),.out_effect(),
+ k053247_draw draw(.violent(1'b0), .clk(clk),.reset(reset),.mystic(1'b1),.rom_fifth(sfifth),.out_effect(),
   .line_start(sprite_start),.line(render_line),.busy(sprite_busy),
   .k46r5(k46[5]),.k46_offx({k46[0],k46[1]}),.k46_offy({k46[2],k46[3]}),.opset(k47[6]),.colorbase({k55[27][2:0],5'd0}),
   .alpha1(alpha1),.alpha2(alpha2),.alpha3(alpha3),.stream_enable(1'b1),
@@ -141,12 +141,12 @@ module tb_m2_mixer_top(
   .rom_req(sr),.rom_addr(saddr),.rom_ack(sa),.rom_q(sq),.zoom_addr(dr_za),.zoom_q(zoom_q),.recip_addr(recip_addr),.recip_q(recip_q),
   .px(px),.out_opaque(),.out_pen(),.out_pri(),.out_shadow(),.out_shtab(),.out_shpri(),.shadow_overlap(),
   .dbg_objs(),.dbg_rows(),.dbg_cols(),.dbg_pxw(draw_pixels));
- pregx_mystic_compositor compositor(.clk(clk),.reset(reset),.line_start(sprite_start),.k55regs(k55),.k38regs(k38),
+ pregx_mystic_compositor compositor(.violent(1'b0), .clk(clk),.reset(reset),.line_start(sprite_start),.k55regs(k55),.k38regs(k38),
   .alpha1(alpha1),.alpha2(alpha2),.alpha3(alpha3),.sprite_busy(sprite_busy),
   .order_valid(order_valid),.order_priority(order_priority),.order_deferred(order_deferred),.order_ready(order_ready),
   .fragment_valid(fragment_valid),.fragment_ready(fragment_ready),.fragment_x(fragment_x),.fragment_pen(fragment_pen),.fragment_level(fragment_level),
   .fragment_shadow(fragment_shadow),.fragment_table(fragment_table),.fragment_condition(fragment_condition),.fragment_z(fragment_z),.fragment_pri(fragment_pri),
-  .tile_x(tile_x),.tile_pen(tile_pen),.tile_opaque(opaque),.tile_nonempty(tile_nonempty),.tile_category(category),.palette_addr(palette_addr),.palette_q(palette_q),.scan_x(px),.rgb(rgb),.busy(compositor_busy));
+  .tile_x(tile_x),.tile_pen(tile_pen),.tile_opaque(opaque),.tile_nonempty(tile_nonempty),.tile_category(category),.last_mix(2'd0),.palette_addr(palette_addr),.palette_q(palette_q),.scan_x(px),.rgb(rgb),.busy(compositor_busy));
  assign vsetup_ack=vsetup_mode && vack;
  assign observed_tack=ta;assign observed_sack=sa;assign observed_vack=tvack;
  tb_m2_mem_top memory(.clk(clk),.init(init),.mystic(1'b1),.ready(ready),.rd_late(1'b1),.burst_slow(1'b0),

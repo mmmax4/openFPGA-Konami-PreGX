@@ -18,7 +18,7 @@ module tb_m2_empty_tile04 (
   if(cb_we)cb[cb_addr]<=cb_data;
  end
  wire [11:0] pen[4];wire [1:0] category[4];wire [3:0] opaque;
- k056832_tilemap tile(.clk(clk),.reset(reset),.mystic(1'b1),
+ k056832_tilemap tile(.violent(1'b0), .clk(clk),.reset(reset),.mystic(1'b1),
   .line_start(line_start),.line(line),.busy(busy),.regs(regs),.colorbase(cb),
   .vram_req(vreq),.vram_addr(vaddr),.vram_ack(vack),.vram_q(vq),
   .rom_req(rreq),.rom_addr(raddr),.rom_ack(rack),.rom_q(rq),.rom_fifth(fifth),

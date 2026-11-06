@@ -25,7 +25,7 @@ module tb_pause_main;
   wire [7:0] ld_q;
   wire dirty;
   gaia_main dut(
-    .clk(clk),.reset(reset),.cen_16m(cen_16m),
+    .violent(1'b0), .clk(clk),.reset(reset),.cen_16m(cen_16m),
 `ifndef OLD_BASELINE
         .mystic(1'b0), .raster_start(1'b0), .raster_line(9'd0),
         .mystic_p12(16'hffff), .mystic_p34(16'hffff), .mystic_in0(8'hff),

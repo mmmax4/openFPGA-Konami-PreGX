@@ -33,6 +33,7 @@ module gaia_mem #(
 ) (
     input  logic        clk,            // 96 MHz
     input  logic        clk_sdram,      // 96 MHz, phase-shifted, drives the SDRAM clock pin
+    input  logic        violent,
     input  logic        mystic,         // profile stable from init through download/run
     input  logic        init,           // hardware reset: re-initialise the SDRAM
     output logic        ready,
@@ -61,7 +62,7 @@ module gaia_mem #(
 
     // core ports
     input  logic        prog_req,  input  logic [22:1] prog_addr, output logic prog_ack, output logic [15:0] prog_q,
-    input  logic        tile_req,  input  logic [18:0] tile_addr, output logic tile_ack, output logic [31:0] tile_q,
+    input  logic        tile_req,  input  logic [19:0] tile_addr, output logic tile_ack, output logic [31:0] tile_q,
     output logic  [7:0] tile_fifth,    // fifth plane for the same acknowledged row
     output logic [15:0] spr_fifth,     // pixels0..7 high byte,8..15 low byte
     input  logic        map_req,   input  logic [19:0] map_addr,  output logic map_ack,  output logic [15:0] map_q,
@@ -100,10 +101,10 @@ module gaia_mem #(
     localparam [24:0] M_SND = 25'h0200000, M_TILE = 25'h0240000,
         M_PCM = 25'h04C0000, M_SPR = 25'h08C0000, M_EEP = 25'h0DC0000;
     localparam [24:1] SD_M_PCM = 24'h140000, SD_M_SPR = 24'h340000;
-    wire [24:0] image_snd = mystic ? M_SND : IMG_SND;
-    wire [24:0] image_tile = mystic ? M_TILE : IMG_TILE;
-    wire [24:0] image_end = mystic ? (M_EEP + 25'h80) : IMG_END;
-    assign test_mask = mystic ? 7'h67 : 7'h7f;
+    wire [24:0] image_snd = (mystic || violent) ? M_SND : IMG_SND;
+    wire [24:0] image_tile = (mystic || violent) ? M_TILE : IMG_TILE;
+    wire [24:0] image_end = violent ? 25'h1240080 : mystic ? (M_EEP + 25'h80) : IMG_END;
+    assign test_mask = (mystic || violent) ? 7'h67 : 7'h7f;
     // PSRAM word addresses
     localparam [22:0] PS_CHR = 23'h000000, PS_MAP = 23'h0C0000, PS_PROG = 23'h000000, PS_SND = 23'h180000;
 
@@ -178,6 +179,12 @@ module gaia_mem #(
                         ps_wr_addr <= PS_PROG + 23'(wa); ps1_wr_req <= 1'b1; wst <= W_PS1;
                     end else if (wa < image_tile[24:1]) begin       // Z80 program -> CRAM1
                         ps_wr_addr <= PS_SND + 23'(wa - image_snd[24:1]); ps1_wr_req <= 1'b1; wst <= W_PS1;
+                    end else if (violent) begin
+                        if(wa < 24'h320000) begin sd_wr_addr<=wa-M_TILE[24:1];sd_wr_req<=1'b1;wst<=W_SDRAM;end
+                        else if(wa < 24'h520000) begin sd_wr_addr<=24'h200000+(wa-24'h320000);sd_wr_req<=1'b1;wst<=W_SDRAM;end
+                        else if(wa < 24'h920000) begin sd_wr_addr<=24'h400000+(wa-24'h520000);sd_wr_req<=1'b1;wst<=W_SDRAM;end
+                        else if(wa < image_end[24:1]) begin eep_we<=wbe[1];eep_addr<={wa[6:1],1'b0};eep_data<=wd[15:8];wst<=W_EEP;end
+                        else wf_rp<=wf_rp+7'd1;
                     end else if (mystic) begin
                         if (wa < M_PCM[24:1]) begin
                             sd_wr_addr <= SD_TILE + (wa - M_TILE[24:1]); sd_wr_req <= 1'b1; wst <= W_SDRAM;
@@ -218,8 +225,8 @@ module gaia_mem #(
 
     // Local profile for runtime clients/packing only. Download decoding above
     // retains the original early-prefix timing; no load byte is delayed.
-    (* preserve, dont_merge *) logic render_mystic;
-    always_ff @(posedge clk) render_mystic <= mystic;
+    (* preserve, dont_merge *) logic render_mystic, render_violent;
+    always_ff @(posedge clk) begin render_mystic <= mystic; render_violent<=violent;end
     // --------------------------------------------------------------- SDRAM
     logic [24:1] c_addr  [6];
     logic        c_req   [6];
@@ -236,7 +243,7 @@ module gaia_mem #(
 
     // the memory test drives the ports while it runs (the core is in reset)
     logic        t_prog_req, t_snd_req, t_tile_req, t_blk_req, t_map_req, t_pcm_req, t_spr_req;
-    logic [22:1] t_prog_addr; logic [17:0] t_snd_addr; logic [18:0] t_tile_addr; logic [15:0] t_blk_addr;
+    logic [22:1] t_prog_addr; logic [17:0] t_snd_addr; logic [19:0] t_tile_addr; logic [15:0] t_blk_addr;
     logic [19:0] t_map_addr;  logic [21:0] t_pcm_addr; logic [19:0] t_spr_addr;
     logic        t_vram_req, t_vram_we; logic [15:0] t_vram_addr, t_vram_wdata;
     wire         prog_req_i  = test_run ? t_prog_req  : prog_req;
@@ -244,7 +251,7 @@ module gaia_mem #(
     wire         snd_req_i   = test_run ? t_snd_req   : snd_req;
     wire [17:0]  snd_addr_i  = test_run ? t_snd_addr  : snd_addr;
     wire         tile_req_i  = test_run ? t_tile_req  : tile_req;
-    wire [18:0]  tile_addr_i = test_run ? t_tile_addr : tile_addr;
+    wire [19:0]  tile_addr_i = test_run ? t_tile_addr : tile_addr;
     wire         blk_req_i   = test_run ? t_blk_req   : blk_req;
     wire [15:0]  blk_addr_i  = test_run ? t_blk_addr  : blk_addr;
     wire         map_req_i   = test_run ? t_map_req   : map_req;
@@ -260,7 +267,7 @@ module gaia_mem #(
     wire [15:0]  vram_wdata_i = test_run ? t_vram_wdata : vram_wdata;
 
     mem_test #(.SHRINK(TEST_SHRINK)) u_test (
-        .clk(clk), .init(init), .mystic(render_mystic), .ready(ready), .start(test_start), .run(test_run), .done(test_done),
+        .clk(clk), .init(init), .mystic(render_mystic), .violent(render_violent), .ready(ready), .start(test_start), .run(test_run), .done(test_done),
         .ok(test_ok), .stable(test_stable), .vram_ok(vram_ok), .vram_bad(vram_bad),
         .dl_we(dl_we && !dl_we_d), .dl_addr(dl_addr), .dl_data(dl_data),
         .prog_req(t_prog_req), .prog_addr(t_prog_addr), .prog_ack(prog_ack), .prog_q(prog_q),
@@ -287,7 +294,10 @@ module gaia_mem #(
         if (init) begin qst <= Q_IDLE; c_req[0] <= 1'b0; end
         else case (qst)
             Q_IDLE: if (pcm_req_i && !pcm_ack) begin
-                pcm_addr_l <= pcm_addr_i; c_addr[0] <= (render_mystic ? SD_M_PCM : SD_PCM) + 24'(pcm_addr_i[21:1]); c_req[0] <= 1'b1; qst <= Q_BUSY;
+                pcm_addr_l <= pcm_addr_i;
+                c_addr[0] <= render_violent ? {3'b001,pcm_addr_i[21:1]} :
+                    render_mystic ? SD_M_PCM + 24'(pcm_addr_i[21:1]) : SD_PCM + 24'(pcm_addr_i[21:1]);
+                c_req[0] <= 1'b1; qst <= Q_BUSY;
             end
             Q_BUSY: if (c_ack[0]) begin pcm_word <= sd_rdata; c_req[0] <= 1'b0; qst <= Q_ACK; end
             Q_ACK: begin
@@ -315,11 +325,12 @@ module gaia_mem #(
     typedef enum logic [1:0] { B_IDLE, B_RUN, B_ACK } bst_t;
     bst_t  bst;
     logic  [1:0] bsel;                  // 0 tiles, 1 sprites, 2 ROZ blocks
-    logic [18:0] tile_addr_l;
+    logic [19:0] tile_addr_l;
     logic [19:0] spr_addr_l;
     logic [15:0] blk_addr_l;
+    logic [15:0] blk_addr_part;       // identity of a suspended, not active, block
     logic [15:0] bw [5];
-    wire [21:0] tile_byte_offset = {3'd0,tile_addr_i} + {1'b0,tile_addr_i,2'b00};
+    wire [21:0] tile_byte_offset = {2'd0,tile_addr_i} + {tile_addr_i,2'b00};
     wire [22:0] spr_word_offset = {3'd0,spr_addr_i} + {1'b0,spr_addr_i,2'b00};
     // A ROZ tile fetch (64 words, ~140 clocks) yields to the tilemap's and the
     // sprite renderer's fetches, which have a line to finish while the ROZ
@@ -366,32 +377,39 @@ module gaia_mem #(
             if (!blk_req_i) blk_part <= 1'b0;
             case (bst)
                 B_IDLE: begin                   // not a request being acked right now
+                    // Capture the accepted address without the tile/sprite grant
+                    // chain on its enable. A suspended block keeps its own tag,
+                    // so changing an unserved request cannot retag its tail.
+                    blk_addr_l <= blk_addr_i;
                     if (blk_req_i && !blk_ack && starved) begin      // its guaranteed turn
                         bsel <= 2'd2; forced <= 1'b1;
-                        if (blk_part && blk_addr_i == blk_addr_l) begin
+                        if (blk_part && blk_addr_i == blk_addr_part) begin
                             blk_base <= blk_n[5:0];
-                            b_addr <= SD_ROZ + {4'd0, blk_addr_i[13:0], 6'd0} + 24'(blk_n);
+                            // Partial blocks always have0..63 words delivered;
+                            // these fields never overlap. Avoid a wide carry.
+                            b_addr <= {4'h7,blk_addr_i[13:0],blk_n[5:0]};
                             b_len <= (blk_n < 7'd64 - flen) ? 10'(flen) : 10'd64 - 10'(blk_n);
                         end else begin
-                            blk_addr_l <= blk_addr_i; blk_base <= '0; blk_n <= '0;
+                            blk_base <= '0; blk_n <= '0;
                             b_addr <= SD_ROZ + {4'd0, blk_addr_i[13:0], 6'd0}; b_len <= 10'(flen);
                         end
                         blk_part <= 1'b0; b_req <= 1'b1; bst <= B_RUN;
                     end else if (tile_req_i && !tile_ack) begin
                         bsel <= 2'd0; tile_addr_l <= tile_addr_i;
-                        b_addr <= render_mystic ? 24'(tile_byte_offset >> 1) : SD_TILE + {4'd0, tile_addr_i, 1'b0};
+                        b_addr <= render_mystic ? 24'(tile_byte_offset >> 1) : SD_TILE + {3'd0, tile_addr_i, 1'b0};
                         b_len <= render_mystic ? 10'd3 : 10'd2; b_req <= 1'b1; bst <= B_RUN;
                     end else if (spr_req_i && !spr_ack) begin
                         bsel <= 2'd1; spr_addr_l <= spr_addr_i;
-                        b_addr <= render_mystic ? SD_M_SPR + 24'(spr_word_offset) : SD_SPR + {2'd0, spr_addr_i, 2'b00};
+                        b_addr <= render_mystic ? SD_M_SPR + 24'(spr_word_offset) :
+                            render_violent ? {2'b01,spr_addr_i,2'b00} : SD_SPR + {2'd0,spr_addr_i,2'b00};
                         b_len <= render_mystic ? 10'd5 : 10'd4; b_req <= 1'b1; bst <= B_RUN;
                     end else if (blk_req_i && !blk_ack && quiet >= 5'(QUIET)) begin     // the port is free
                         bsel <= 2'd2; forced <= 1'b0;
-                        if (blk_part && blk_addr_i == blk_addr_l) begin     // resume the cut fetch
+                        if (blk_part && blk_addr_i == blk_addr_part) begin     // resume the cut fetch
                             blk_base <= blk_n[5:0];
-                            b_addr <= SD_ROZ + {4'd0, blk_addr_i[13:0], 6'd0} + 24'(blk_n); b_len <= 10'd64 - 10'(blk_n);
+                            b_addr <= {4'h7,blk_addr_i[13:0],blk_n[5:0]}; b_len <= 10'd64 - 10'(blk_n);
                         end else begin
-                            blk_addr_l <= blk_addr_i; blk_base <= '0; blk_n <= '0;
+                            blk_base <= '0; blk_n <= '0;
                             b_addr <= SD_ROZ + {4'd0, blk_addr_i[13:0], 6'd0}; b_len <= 10'd64;
                         end
                         blk_part <= 1'b0; b_req <= 1'b1; bst <= B_RUN;
@@ -407,7 +425,7 @@ module gaia_mem #(
                         b_req <= 1'b0;
                         // a tile fetch cut short (or a forced chunk) is resumed later, without an ack
                         forced <= 1'b0;
-                        if (bsel == 2'd2 && blk_n_now != 7'd64) begin blk_part <= 1'b1; bst <= B_IDLE; end
+                        if (bsel == 2'd2 && blk_n_now != 7'd64) begin blk_part <= 1'b1; blk_addr_part <= blk_addr_l; bst <= B_IDLE; end
                         else bst <= B_ACK;
                     end
                 end
@@ -698,6 +716,7 @@ module mem_test #(
     input  logic        clk,
     input  logic        init,
     input  logic        mystic,
+    input  logic        violent,
     input  logic        ready,
     input  logic        start,
     output logic        run, done,
@@ -707,7 +726,7 @@ module mem_test #(
     input  logic        dl_we, input logic [24:0] dl_addr, input logic [7:0] dl_data,
     output logic        prog_req, output logic [22:1] prog_addr, input logic prog_ack, input logic [15:0] prog_q,
     output logic        snd_req,  output logic [17:0] snd_addr,  input logic snd_ack,  input logic  [7:0] snd_q,
-    output logic        tile_req, output logic [18:0] tile_addr, input logic tile_ack, input logic [31:0] tile_q,
+    output logic        tile_req, output logic [19:0] tile_addr, input logic tile_ack, input logic [31:0] tile_q,
     input  logic  [7:0] tile_fifth,
     input  logic [15:0] spr_fifth,
     output logic        blk_req,  output logic [15:0] blk_addr,  input logic blk_wr,   input logic [15:0] blk_data, input logic blk_ack,
@@ -720,16 +739,16 @@ module mem_test #(
     // The ROM profile is stable throughout download/test. A local launch
     // register removes the global profile fanout from the test datapath;
     // identification is long settled before any profile-dependent boundary.
-    (* preserve, dont_merge *) logic test_mystic;
-    always_ff @(posedge clk) test_mystic <= mystic;
+    (* preserve, dont_merge *) logic test_mystic, test_violent;
+    always_ff @(posedge clk) begin test_mystic<=mystic;test_violent<=violent;end
     localparam [24:0] IMG_SND  = 25'h0300000, IMG_TILE = 25'h0340000;
     localparam [24:0] IMG_CHR  = 25'h0540000, IMG_MAP  = 25'h06C0000, IMG_PCM  = 25'h0760000;
     localparam [24:0] IMG_SPR  = 25'h0B60000, IMG_EEP  = 25'h1360000;
-    wire [24:0] image_snd = test_mystic ? 25'h0200000 : IMG_SND;
-    wire [24:0] image_tile = test_mystic ? 25'h0240000 : IMG_TILE;
-    wire [24:0] image_pcm = test_mystic ? 25'h04C0000 : IMG_PCM;
-    wire [24:0] image_spr = test_mystic ? 25'h08C0000 : IMG_SPR;
-    wire [24:0] image_eep = test_mystic ? 25'h0DC0000 : IMG_EEP;
+    wire [24:0] image_snd = (test_mystic || test_violent) ? 25'h0200000 : IMG_SND;
+    wire [24:0] image_tile = (test_mystic || test_violent) ? 25'h0240000 : IMG_TILE;
+    wire [24:0] image_pcm = test_violent ? 25'h0640000 : test_mystic ? 25'h04C0000 : IMG_PCM;
+    wire [24:0] image_spr = test_violent ? 25'h0a40000 : test_mystic ? 25'h08C0000 : IMG_SPR;
+    wire [24:0] image_eep = test_violent ? 25'h1240000 : test_mystic ? 25'h0DC0000 : IMG_EEP;
     // accesses per region, in each port's unit
     localparam [22:0] N_PROG = 23'h180000, N_SND = 23'h040000, N_TILE = 23'h080000, N_CHR = 23'h003000;   // chr: 64-word tiles
     localparam [22:0] N_MAP  = 23'h050000, N_PCM = 23'h400000, N_SPR  = 23'h100000;
@@ -749,9 +768,9 @@ module mem_test #(
         b2_we <= b1_we; b2_data <= b1_data; b2_first <= b1_first;
         b2_sel[0] <= (b1_addr < image_snd);
         b2_sel[1] <= (b1_addr >= image_snd) && (b1_addr < image_tile);
-        b2_sel[2] <= (b1_addr >= image_tile) && (b1_addr < (test_mystic ? image_pcm : IMG_CHR));
-        b2_sel[3] <= !test_mystic && (b1_addr >= IMG_CHR) && (b1_addr < IMG_MAP);
-        b2_sel[4] <= !test_mystic && (b1_addr >= IMG_MAP) && (b1_addr < IMG_PCM);
+        b2_sel[2] <= (b1_addr >= image_tile) && (b1_addr < ((test_mystic || test_violent) ? image_pcm : IMG_CHR));
+        b2_sel[3] <= !(test_mystic || test_violent) && (b1_addr >= IMG_CHR) && (b1_addr < IMG_MAP);
+        b2_sel[4] <= !(test_mystic || test_violent) && (b1_addr >= IMG_MAP) && (b1_addr < IMG_PCM);
         b2_sel[5] <= (b1_addr >= image_pcm) && (b1_addr < image_spr);
         b2_sel[6] <= (b1_addr >= image_spr) && (b1_addr < image_eep);
         for (int i = 0; i < 7; i++) begin
@@ -764,6 +783,7 @@ module mem_test #(
     typedef enum logic [3:0] { T_IDLE, T_REQ, T_SUM, T_NEXT, T_VW, T_VR, T_VZ, T_DONE } tst_t;
     tst_t        st;
     logic  [2:0] region;
+    (* preserve, dont_merge *) logic [6:0] region_onehot;
     logic        pass;
     logic [22:0] idx, n_end;
     logic [23:0] acc;
@@ -784,9 +804,9 @@ module mem_test #(
     endfunction
     always_comb begin
         case (region)
-            3'd0: begin ack = prog_ack; bytes = 12'(prog_q[15:8]) + 12'(prog_q[7:0]); n_end = (test_mystic ? 23'h100000 : N_PROG) >> SHRINK; end
+            3'd0: begin ack = prog_ack; bytes = 12'(prog_q[15:8]) + 12'(prog_q[7:0]); n_end = ((test_mystic || test_violent) ? 23'h100000 : N_PROG) >> SHRINK; end
             3'd1: begin ack = snd_ack;  bytes = 12'(snd_q); n_end = N_SND >> SHRINK; end
-            3'd2: begin ack = tile_ack; bytes = 12'(sum_four_bytes(tile_q)) + 12'(tile_fifth); n_end = N_TILE >> SHRINK; end
+            3'd2: begin ack = tile_ack; bytes = 12'(sum_four_bytes(tile_q)) + 12'(tile_fifth); n_end = (test_violent ? 23'h100000 : N_TILE) >> SHRINK; end
             3'd3: begin ack = blk_ack;  bytes = 12'd0; n_end = N_CHR >> SHRINK; end   // summed per streamed word below
             3'd4: begin ack = map_ack;  bytes = 12'(map_q[15:8]) + 12'(map_q[7:0]); n_end = N_MAP >> SHRINK; end
             3'd5: begin ack = pcm_ack;  bytes = 12'(pcm_q); n_end = N_PCM >> SHRINK; end
@@ -796,13 +816,13 @@ module mem_test #(
                 n_end = (test_mystic ? 23'h080000 : N_SPR) >> SHRINK; end
         endcase
     end
-    assign prog_req = run && st == T_REQ && region == 3'd0;  assign prog_addr = idx[21:0];
-    assign snd_req  = run && st == T_REQ && region == 3'd1;  assign snd_addr  = idx[17:0];
-    assign tile_req = run && st == T_REQ && region == 3'd2;  assign tile_addr = idx[18:0];
-    assign blk_req  = run && st == T_REQ && region == 3'd3 && !test_mystic;  assign blk_addr  = idx[15:0];
-    assign map_req  = run && st == T_REQ && region == 3'd4 && !test_mystic;  assign map_addr  = {idx[18:0], 1'b0};
-    assign pcm_req  = run && st == T_REQ && region == 3'd5;  assign pcm_addr  = idx[21:0];
-    assign spr_req  = run && st == T_REQ && region == 3'd6;  assign spr_addr  = idx[19:0];
+    assign prog_req = run && st == T_REQ && region_onehot[0];  assign prog_addr = idx[21:0];
+    assign snd_req  = run && st == T_REQ && region_onehot[1];  assign snd_addr  = idx[17:0];
+    assign tile_req = run && st == T_REQ && region_onehot[2];  assign tile_addr = idx[19:0];
+    assign blk_req  = run && st == T_REQ && region_onehot[3] && !(test_mystic || test_violent);  assign blk_addr  = idx[15:0];
+    assign map_req  = run && st == T_REQ && region_onehot[4] && !(test_mystic || test_violent);  assign map_addr  = {idx[18:0], 1'b0};
+    assign pcm_req  = run && st == T_REQ && region_onehot[5];  assign pcm_addr  = idx[21:0];
+    assign spr_req  = run && st == T_REQ && region_onehot[6];  assign spr_addr  = idx[19:0];
     // the tile RAM pattern: every address bit in both bytes
     wire [15:0] vpat = idx[15:0] ^ {idx[10:0], 5'b10110} ^ 16'hA55A;
     assign vram_req   = run && (st == T_VW || st == T_VR || st == T_VZ);
@@ -812,12 +832,12 @@ module mem_test #(
 
     always_ff @(posedge clk) begin
         start_d <= start;
-        if (init) begin st <= T_IDLE; run <= 1'b0; done <= 1'b0; ok <= '0; stable <= '0; vram_ok <= 1'b0; vram_bad <= '0; vbad <= '0; end
+        if (init) begin st <= T_IDLE; region_onehot <= 7'd0; run <= 1'b0; done <= 1'b0; ok <= '0; stable <= '0; vram_ok <= 1'b0; vram_bad <= '0; vbad <= '0; end
         else case (st)
             T_IDLE: if (start && !start_d && ready) begin
-                run <= 1'b1; done <= 1'b0; region <= 3'd0; pass <= 1'b0; idx <= '0; acc <= '0; add_pend <= 1'b0; st <= T_REQ;
+                run <= 1'b1; done <= 1'b0; region <= 3'd0; region_onehot <= 7'b0000001; pass <= 1'b0; idx <= '0; acc <= '0; add_pend <= 1'b0; st <= T_REQ;
             end
-            T_REQ: if (test_mystic && (region == 3'd3 || region == 3'd4)) begin
+            T_REQ: if ((test_mystic || test_violent) && (region == 3'd3 || region == 3'd4)) begin
                 // Absent ROZ regions: leave ok/stable low, advertised by mask67.
                 add_pend <= 1'b0; st <= T_SUM;
             end else begin
@@ -836,11 +856,11 @@ module mem_test #(
                 add_pend <= 1'b0; st <= T_NEXT;
             end
             T_NEXT: begin
-                if (!pass) begin asum[region] <= acc; ok[region] <= !(test_mystic && (region == 3'd3 || region == 3'd4)) && (acc == lsum[region]); end
-                else stable[region] <= !(test_mystic && (region == 3'd3 || region == 3'd4)) && (acc == asum[region]);
+                if (!pass) begin asum[region] <= acc; ok[region] <= !((test_mystic || test_violent) && (region == 3'd3 || region == 3'd4)) && (acc == lsum[region]); end
+                else stable[region] <= !((test_mystic || test_violent) && (region == 3'd3 || region == 3'd4)) && (acc == asum[region]);
                 acc <= '0; idx <= '0; st <= T_REQ;
-                if (region != 3'd6) region <= region + 3'd1;
-                else if (!pass) begin pass <= 1'b1; region <= 3'd0; end
+                if (region != 3'd6) begin region <= region + 3'd1; region_onehot <= region_onehot << 1; end
+                else if (!pass) begin pass <= 1'b1; region <= 3'd0; region_onehot <= 7'b0000001; end
                 else begin vbad <= '0; st <= T_VW; end
             end
             T_VW: if (vram_ack) begin

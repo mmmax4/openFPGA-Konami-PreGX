@@ -75,7 +75,7 @@ module tb_pocket_top #(
     logic        eep_we_unused; logic [6:0] eep_addr_unused; logic [7:0] eep_data_unused;
 
     gaia_mem u_mem (
-        .mystic(1'b0), .test_mask(), .tile_fifth(), .spr_fifth(),
+        .violent(1'b0), .mystic(1'b0), .test_mask(), .tile_fifth(), .spr_fifth(),
         .clk(clk), .clk_sdram(clk), .init(reset), .ready(mem_ready), .rd_late(1'b1), .burst_slow(1'b0),
         .ps_slow(1'b0), .sram_slow(1'b0), .sram_slow_wr(1'b0),
         .test_start(1'b0), .test_run(), .test_done(), .test_ok(), .test_stable(), .vram_ok(), .vram_bad(),
@@ -138,7 +138,7 @@ module tb_pocket_top #(
 
     // the core waits for the SDRAM, as core_top does
     wire core_reset = reset | ~mem_ready;
-    gaia_core #(.HEXDIR("../rtl/data"), .STEP_COST_BUS(STEP_COST_BUS), .STEP_COST_INT(STEP_COST_INT)) u_core (
+    gaia_core #(.HEXDIR("../rtl/data"), .STEP_COST_BUS(STEP_COST_BUS), .STEP_COST_INT(STEP_COST_INT)) u_core (.violent(1'b0), 
         .mystic(1'b0), .mystic_p12(16'hffff), .mystic_p34(16'hffff), .mystic_in0(8'hff),
         .tile_fifth(8'd0), .spr_fifth(16'd0),
         .clk(clk), .pause(pause), .reset(core_reset), .pix_sync(1'b0), .vid_reset(reset),

@@ -30,7 +30,7 @@ module tb_mem_top #(parameter int TEST_SHRINK = 6) (
     wire         cram1_clk, cram1_adv_n, cram1_cre, cram1_ce0_n, cram1_ce1_n, cram1_oe_n, cram1_we_n, cram1_ub_n, cram1_lb_n;
     wire  [16:0] sram_a; wire [15:0] sram_dq; wire sram_oe_n, sram_we_n, sram_ub_n, sram_lb_n;
 
-    gaia_mem #(.TEST_SHRINK(TEST_SHRINK)) dut (
+    gaia_mem #(.TEST_SHRINK(TEST_SHRINK)) dut (.violent(1'b0), 
         .mystic(1'b0), .test_mask(), .tile_fifth(), .spr_fifth(),
         .clk(clk), .clk_sdram(clk), .init(init), .ready(ready), .rd_late(1'b1), .burst_slow(1'b0),
         .ps_slow(ps_slow), .sram_slow(sram_slow), .sram_slow_wr(sram_slow_wr),

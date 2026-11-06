@@ -1,6 +1,6 @@
 # Build
 
-The hardware snapshot is the source used for the intro01 compatibility17 fit.
+The hardware snapshot is the source used for the three-game qualified fit15.
 Quartus Prime Lite **21.1.1**, Cyclone V support and Python 3 were used. No new
 Quartus build is claimed for this publication. Device settings, clock IP,
 constraints and generated CPU source are retained. Do not copy timing exceptions
@@ -32,7 +32,7 @@ saves. Follow ROM_SETUP.md before use. This local helper is not a public binary
 release and does not establish hardware qualification for a new fit.
 
 The pre-flow Tcl generates a date/time/random build identifier; the retained
-intro01 MIF records the tested build, while recompilation generates a new one.
+fit15 MIF records the tested build, while recompilation generates a new one.
 Bit-identical rebuilds are not promised. TG68K's original VHDL, generated Verilog
 and GHDL synthesis recipe are included; the inherited conversion used GHDL6.0.
 

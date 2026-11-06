@@ -19,7 +19,6 @@ module pregx_sprite_line_queue (
     // Four entries are deliberately registers: the Pocket design has only
     // one unused M10K and this queue does not require another memory block.
     (* ramstyle = "logic" *) logic [31:0] fifo [4];
-    logic [1:0] rd_ptr, wr_ptr;
     logic [2:0] queued;
     logic [9:0] issued, count;
     logic [8:0] render_line;
@@ -31,34 +30,37 @@ module pregx_sprite_line_queue (
                   $signed({2'b00, render_line}) <= $signed(yr_q[10:0]);
     wire push = active && range_response && covers;
     wire pop = valid && ready;
+    wire [1:0] push_slot = queued[1:0] - {1'b0,pop};
 
     assign list_idx = issued;
     assign yr_addr = list_q[15:8];
     assign valid = active && queued != 3'd0;
-    assign entry = fifo[rd_ptr];
+    assign entry = fifo[0];
     assign scan_done = active && issued == count && !list_response && !range_response;
 
     always_ff @(posedge clk) begin
         if (reset) begin
             active <= 1'b0;
             issued <= 10'd0; count <= 10'd0; render_line <= 9'd0;
-            rd_ptr <= 2'd0; wr_ptr <= 2'd0; queued <= 3'd0;
+            queued <= 3'd0;
             list_response <= 1'b0; range_response <= 1'b0;
         end else if (line_start) begin
             active <= 1'b1;
             issued <= 10'd0; count <= list_count; render_line <= line;
-            rd_ptr <= 2'd0; wr_ptr <= 2'd0; queued <= 3'd0;
+            queued <= 3'd0;
             list_response <= 1'b0; range_response <= 1'b0;
         end else begin
             list_response <= issue;
             range_response <= list_response;
             if (issue) issued <= issued + 10'd1;
             if (list_response) delayed_entry <= list_q;
-            if (push) begin
-                fifo[wr_ptr] <= delayed_entry;
-                wr_ptr <= wr_ptr + 2'd1;
+            // Static head removes the read-pointer mux on the consumer.
+            // Append after the optional pop; its NBA overrides that slot's
+            // shift when push and pop coincide. Reservation/issue is unchanged.
+            if (pop) begin
+                for (int i=0;i<3;i++) fifo[i] <= fifo[i+1];
             end
-            if (pop) rd_ptr <= rd_ptr + 2'd1;
+            if (push) fifo[push_slot] <= delayed_entry;
             case ({push,pop})
                 2'b10: queued <= queued + 3'd1;
                 2'b01: queued <= queued - 3'd1;

@@ -25,6 +25,7 @@ module k053247_draw #(
 ) (
     input  logic        clk,
     input  logic        reset,
+    input  logic        violent,
     input  logic        mystic,        // stable profile through render/scanout
 
     input  logic        line_start,
@@ -94,17 +95,24 @@ module k053247_draw #(
     // diagnostics for the frozen-state bench
     output logic [31:0] dbg_objs, dbg_rows, dbg_cols, dbg_pxw
 );
+    // Runtime profile is held through the full reset/reload window. Track it
+    // continuously, including reset, and keep the high-fanout decoders local.
+    (* preserve, dont_merge *) logic draw_mystic, draw_violent;
+    always_ff @(posedge clk) begin
+        draw_mystic <= mystic; draw_violent <= violent;
+    end
+
     // Nearly every value here is a field carved out of a 16-bit chip register
     // or a wide intermediate that is then truncated, so unused bits are the
     // normal case rather than a mistake. Waived once for the whole module
     // instead of nineteen times.
     /* verilator lint_off UNUSEDSIGNAL */
 
-    wire signed [17:0] DXS = mystic ? -18'sd48 : 18'(DX);
-    wire signed [17:0] DYS = mystic ? -18'sd24 : 18'(DY);
-    wire signed [17:0] CLS = mystic ? 18'sd24 : 18'(VIS_X0);
-    wire signed [17:0] CRS = mystic ? 18'sd311 : 18'(VIS_X0 + VIS_W - 1);
-    wire [LB_AW-1:0] last_visible = mystic ? LB_AW'(287) : LB_AW'(VIS_W - 1);
+    wire signed [17:0] DXS = draw_violent ? -18'sd62 : draw_mystic ? -18'sd48 : 18'(DX);
+    wire signed [17:0] DYS = draw_violent ? -18'sd23 : draw_mystic ? -18'sd24 : 18'(DY);
+    wire signed [17:0] CLS = draw_mystic ? 18'sd24 : 18'(VIS_X0);
+    wire signed [17:0] CRS = draw_violent ? 18'sd423 : draw_mystic ? 18'sd311 : 18'(VIS_X0 + VIS_W - 1);
+    wire [LB_AW-1:0] last_visible = draw_violent ? LB_AW'(383) : draw_mystic ? LB_AW'(287) : LB_AW'(VIS_W - 1);
     localparam logic signed [17:0] CTS = 18'(VIS_Y0);
     localparam logic signed [17:0] CBS = 18'(VIS_Y0 + VIS_H - 1);
 
@@ -116,8 +124,8 @@ module k053247_draw #(
     localparam int LB_DEPTH = 1 << LB_AW;
     logic [17:0] solid [2][LB_DEPTH];   // {opaque, palette12, priority_code3, effect2}
     logic [10:0] shade [2][LB_DEPTH];   // {flag, table[1:0], priority[7:0]}
-    logic  [7:0] zbuf  [VIS_W];
-    logic [15:0] szbuf [VIS_W];         // {z, priority}
+    logic  [7:0] zbuf  [LB_DEPTH];
+    logic [15:0] szbuf [LB_DEPTH];         // {z, priority}
 
     logic [17:0] rd_solid;
     logic [10:0] rd_shade;
@@ -252,6 +260,7 @@ module k053247_draw #(
     wire has_next = ({1'b0, tx} + 4'd1) < width;
     logic        pf_valid, pf_have;     // a prefetch is out for the next column; its row has arrived
     logic [63:0] rowdata_pf;
+    logic [2:0] empty_flags_pf;
     logic [15:0] rowfifth_pf;
     wire [2:0] ysel = mirrory ? (ymir_alt ? yrev : yfwd) : (flipy ? yrev : yfwd);
     wire fx_c = mirrorx ? xmir_alt : flipx;
@@ -306,11 +315,11 @@ module k053247_draw #(
     wire [7:0] pl3 = srccol[3] ? rowdata[31:24] : rowdata[63:56];   // LSB plane
     wire [2:0] plb = 3'd7 - srccol[2:0];
     wire [7:0] pl4 = srccol[3] ? rowfifth[7:0] : rowfifth[15:8];
-    wire [4:0] pen = {mystic && pl4[plb], pl0[plb], pl1[plb], pl2[plb], pl3[plb]};
+    wire [4:0] pen = {draw_mystic && pl4[plb], pl0[plb], pl1[plb], pl2[plb], pl3[plb]};
 
     // GX uses 32768 codes; reduce the completed code, including tile offsets.
     function automatic logic [19:0] row_address(input logic [15:0] code, input logic [3:0] row);
-        return {mystic ? {1'b0, code[14:0]} : code, row};
+        return {draw_mystic ? {1'b0, code[14:0]} : code, row};
     endfunction
 
     // Track the line-buffer column locally instead of subtracting the
@@ -328,7 +337,7 @@ module k053247_draw #(
     wire solid_candidate = tile_solid && (pen!=5'd0) &&
         !(drawmode[1:0]!=2'd0 && pen>=shdpen) && (zb_q>=zcode);
     wire shadow_candidate = !tile_solid && (pen>=shdpen);
-    wire streaming = mystic && stream_enable;
+    wire streaming = (draw_mystic || draw_violent) && stream_enable;
     logic [9:0] legacy_list_idx;
     logic [7:0] legacy_yr_addr;
     logic [10:0] legacy_ram_addr;
@@ -359,7 +368,7 @@ module k053247_draw #(
     assign order_deferred=queued_entry[3:2]==2'd1 || queued_entry[3:2]==2'd2;
     assign fragment_valid=streaming && st==D_PIX && (solid_candidate || shadow_candidate);
     assign fragment_x=lbi;
-    assign fragment_pen=mystic ? {color[6:0],pen} : {color,pen[3:0]};
+    assign fragment_pen=draw_mystic ? {color[6:0],pen} : {color,pen[3:0]};
     assign fragment_level=drawmode[1] ? object_level : 10'd255;
     assign fragment_shadow=!tile_solid;
     assign fragment_table=shtab;
@@ -384,26 +393,98 @@ module k053247_draw #(
     logic            px_valid_a, solid_a, shade_a, ovl_a;
     logic [LB_AW-1:0] lbi_a;
     logic      [4:0] pen_a;
-    wire [11:0] palette_a = mystic ? {color[6:0], pen_a} : {color, pen_a[3:0]};
+    wire [11:0] palette_a = draw_mystic ? {color[6:0], pen_a} : {color, pen_a[3:0]};
 
     /* verilator lint_on UNUSEDSIGNAL */
+
+    // Immutable raw4bpp rows only; descriptor, flip, colour and priority
+    // stay outside the cache. Other profiles retain their original port path.
+    logic row_rom_req;
+    logic [19:0] row_rom_addr;
+    wire row_rom_ack;
+    wire [63:0] row_rom_q;
+    wire vio_row_cache = draw_violent && streaming;
+    wire cache_row_ack;
+    wire [63:0] cache_row_q;
+    logic vio_row_ack;
+    logic [63:0] vio_row_q;
+    logic [2:0] vio_empty_flags;
+    pregx_vio_sprite_cache row_cache(
+        .clk(clk),.reset(reset),.enable(vio_row_cache),
+        .c_req(row_rom_req && (!vio_row_cache || !vio_row_ack)),
+        .c_addr(row_rom_addr),.c_ack(cache_row_ack),.c_q(cache_row_q),
+        .m_req(rom_req),.m_addr(rom_addr),.m_ack(rom_ack),.m_q(rom_q)
+    );
+    // Cut the cache cancellation compare/ACK path before the drawer FSM.
+    // The drawer holds its request/address until it consumes this response;
+    // suppress reacceptance during that delayed ACK. A new line abandons both
+    // the old request and pending response before any next-line consumption.
+    // Other profiles retain the original combinational request/ACK/data path.
+    always_ff @(posedge clk) begin
+        // Payload is meaningful only with ACK; avoid putting the cache's
+        // cancellation compare on all64 payload register enables.
+        vio_row_q <= cache_row_q;
+        // Classify the same raw word at the existing response boundary.
+        // These three predicates are independent of mode, colour and flip.
+        vio_empty_flags <= row_empty_flags(cache_row_q);
+        if (reset || !vio_row_cache || line_start) vio_row_ack <= 1'b0;
+        else vio_row_ack <= cache_row_ack;
+    end
+    assign row_rom_ack = vio_row_cache ? vio_row_ack : cache_row_ack;
+    assign row_rom_q = vio_row_cache ? vio_row_q : cache_row_q;
+
+    // Whole-row conservative rejection, before Z/clip/zoom: these operations
+    // cannot create a pen missing from the raw row. Mode2 deliberately keeps
+    // the existing candidate semantics; this is not an alpha/shadow correction.
+    function automatic logic empty_vio_row(input logic [63:0] raw,
+                                            input logic [3:0] mode);
+        logic [15:0] p0,p1,p2,p3,u,a;
+        p0={raw[39:32],raw[7:0]};p1={raw[47:40],raw[15:8]};
+        p2={raw[55:48],raw[23:16]};p3={raw[63:56],raw[31:24]};
+        u=p0|p1|p2|p3;a=p0&p1&p2&p3;
+        case(mode)
+            4'd0,4'd2,4'd5:return u==16'd0;
+            4'd1,4'd3:return (u & ~a)==16'd0;
+            4'd4:return a==16'd0;
+            default:return 1'b0;
+        endcase
+    endfunction
+
+    function automatic logic [2:0] row_empty_flags(input logic [63:0] raw);
+        logic [15:0] p0,p1,p2,p3,u,a;
+        p0={raw[39:32],raw[7:0]};p1={raw[47:40],raw[15:8]};
+        p2={raw[55:48],raw[23:16]};p3={raw[63:56],raw[31:24]};
+        u=p0|p1|p2|p3;a=p0&p1&p2&p3;
+        return {a==16'd0,(u & ~a)==16'd0,u==16'd0};
+    endfunction
+    function automatic logic empty_from_flags(input logic [2:0] flags,
+                                                input logic [3:0] mode);
+        case(mode)
+            4'd0,4'd2,4'd5:return flags[0];
+            4'd1,4'd3:return flags[1];
+            4'd4:return flags[2];
+            default:return 1'b0;
+        endcase
+    endfunction
 
     // -------------------------------------------------------------------- FSM
     always_ff @(posedge clk) begin
         px_valid_a <= 1'b0;
         if (reset) begin
             st <= D_IDLE; busy <= 1'b0; bank <= 1'b0;
-            rom_req <= 1'b0; shadow_overlap <= 1'b0; pf_valid <= 1'b0; pf_have <= 1'b0;
+            row_rom_req <= 1'b0; shadow_overlap <= 1'b0; pf_valid <= 1'b0; pf_have <= 1'b0;
             dbg_objs <= '0; dbg_rows <= '0; dbg_cols <= '0; dbg_pxw <= '0;
         end else if (line_start && st != D_IDLE) begin
             // the previous line overran its budget: abandon it and start this
             // one, as the hardware would -- whatever was drawn is what shows
             bank <= ~bank; busy <= 1'b1;
-            rom_req <= 1'b0; pf_valid <= 1'b0; pf_have <= 1'b0; clr_i <= '0; st <= D_CLR;
+            row_rom_req <= 1'b0; pf_valid <= 1'b0; pf_have <= 1'b0; clr_i <= '0; st <= D_CLR;
         end else begin
             // a prefetched row arriving while the pixel loop runs
-            if (pf_valid && !pf_have && rom_ack && st != D_ROWW) begin
-                rowdata_pf <= rom_q; rowfifth_pf <= rom_fifth; rom_req <= 1'b0; pf_have <= 1'b1;
+            if (pf_valid && !pf_have && row_rom_ack && st != D_ROWW) begin
+                rowdata_pf <= row_rom_q; rowfifth_pf <= rom_fifth;
+                empty_flags_pf <= vio_empty_flags;
+                row_rom_req <= 1'b0; pf_have <= 1'b1;
             end
             case (st)
                 D_IDLE: begin
@@ -435,7 +516,7 @@ module k053247_draw #(
                             drawmode <= queued_entry[7:4];
                             shtab <= queued_entry[1:0];
                             shadow_condition <= queued_entry[3:2];
-                            shdpen <= (queued_entry[7:4] == 4'd5) ? 5'd1 : 5'd31;
+                            shdpen <= (queued_entry[7:4] == 4'd5) ? 5'd1 : (draw_mystic ? 5'd31 : 5'd15);
                             w0<=cached_words[0];w1<=cached_words[1];w2<=cached_words[2];
                             w3<=cached_words[3];w4<=cached_words[4];w5<=cached_words[5];
                             w6<=cached_words[6];
@@ -458,7 +539,7 @@ module k053247_draw #(
                     drawmode <= list_q[7:4];
                     shtab    <= list_q[1:0];
                     shadow_condition<=list_q[3:2];
-                    shdpen   <= (list_q[7:4] == 4'd5) ? 5'd1 : (mystic ? 5'd31 : 5'd15);
+                    shdpen   <= (list_q[7:4] == 4'd5) ? 5'd1 : (draw_mystic ? 5'd31 : 5'd15);
                     legacy_ram_addr <= {list_q[15:8], 3'd0};
                     st <= D_R1;
                 end
@@ -504,7 +585,7 @@ module k053247_draw #(
                     object_level<=object_alpha;
                     // Keep raw mode2/3 in the ordered list; alpha gating is
                     // a draw operation, before writing any object Z/pixel.
-                    if (mystic && drawmode[1] && object_alpha == 10'd255)
+                    if ((draw_mystic || draw_violent) && drawmode[1] && object_alpha == 10'd255)
                         drawmode <= drawmode & 4'hd;
                     nozoom  <= (scalex == 10'h40) && (scaley == 10'h40);
                     mirrorx <= w6[14];
@@ -512,8 +593,8 @@ module k053247_draw #(
                     flipx   <= w6[14] ? 1'b0    : (w0[12] ^ k46r5[0]);
                     flipy   <= w6[15] ? w0[13]  : (w0[13] ^ k46r5[1]);
                     // gaiapols_sprite_callback
-                    color   <= colorbase | {2'd0, !mystic && w6[9], 5'd0} | {3'd0, w6[4:0]};
-                    effect  <= mystic ? w6[9:8] : 2'b00;
+                    color   <= colorbase | {2'd0, !draw_mystic && !draw_violent && w6[9], 5'd0} | {3'd0, w6[4:0]};
+                    effect  <= (draw_mystic || draw_violent) ? w6[9:8] : 2'b00;
                     width   <= 4'd1 << szc[1:0];
                     height  <= 4'd1 << szc[3:2];
                     xa <= {2'd0, w1[0]} + {1'd0, w1[2], 1'b0} + {w1[4], 2'd0};
@@ -521,7 +602,7 @@ module k053247_draw #(
                     codebase <= w1 & ~16'h003f;
                     ox2_r <= ox2;
                     oy2_r <= oy2;
-                    st <= (mystic && drawmode[1] && object_alpha == 10'd0) ? D_NEXTOBJ : D_GEOM2;
+                    st <= ((draw_mystic || draw_violent) && drawmode[1] && object_alpha == 10'd0) ? D_NEXTOBJ : D_GEOM2;
                 end
                 D_GEOM2: begin
                     ox <= gox;
@@ -562,9 +643,18 @@ module k053247_draw #(
                         recip_addr <= zw[10:0];
                         fx         <= fx_c;
                         tempcode   <= tempcode_y + {10'd0, xoffset(xsel)};
-                        st <= D_SX1;
+                        if (draw_violent && streaming && nozoom) begin
+                            // Nozoom fixes zw=16 and recip[16]=0x080000.
+                            // Capture the same clipped span/offset directly;
+                            // D_SX3 still performs the normal Z prime, ROM/
+                            // prefetch admission and registered pixel start.
+                            stride_x <= 24'h080000;
+                            pxl <= pxl_c; pxr <= pxr_c;
+                            pxoff <= 10'(pxl_c - sx);
+                            st <= D_SX3;
+                        end else st <= D_SX1;
                     end else begin
-                        if (pf_valid) begin rom_req <= 1'b0; pf_valid <= 1'b0; pf_have <= 1'b0; end   // not wanted after all
+                        if (pf_valid) begin row_rom_req <= 1'b0; pf_valid <= 1'b0; pf_have <= 1'b0; end   // not wanted after all
                         st <= D_NEXTTX;
                     end
                 end
@@ -585,29 +675,32 @@ module k053247_draw #(
                     if (pf_valid && pf_have) begin              // this column's row came early
                         rowdata <= fx ? reflected_row(rowdata_pf) : rowdata_pf;
                         rowfifth <= fx ? reflected_fifth(rowfifth_pf) : rowfifth_pf; pf_have <= 1'b0;
-                        if (has_next) begin rom_addr <= row_address(tempcode_y + {10'd0, xoffset(xsel_n)}, src_row); rom_req <= 1'b1; end
+                        if (has_next) begin row_rom_addr <= row_address(tempcode_y + {10'd0, xoffset(xsel_n)}, src_row); row_rom_req <= 1'b1; end
                         else pf_valid <= 1'b0;
-                        st <= D_PIX;
+                        st <= (draw_violent && streaming && empty_from_flags(empty_flags_pf,drawmode))
+                            ? D_NEXTTX : D_PIX;
                     end else if (pf_valid) begin                // still on its way
                         st <= D_ROWW;
                     end else begin
-                        rom_addr <= row_address(tempcode, src_row);
-                        rom_req  <= 1'b1;
+                        row_rom_addr <= row_address(tempcode, src_row);
+                        row_rom_req  <= 1'b1;
                         st <= D_ROWW;
                     end
                 end
                 // (a prefetched row can land on the clock the wait begins: then it
                 // is already in rowdata_pf)
-                D_ROWW: if (rom_ack || (pf_valid && pf_have)) begin
-                    rowdata <= fx ? reflected_row((pf_valid && pf_have) ? rowdata_pf : rom_q)
-                                  : ((pf_valid && pf_have) ? rowdata_pf : rom_q);
+                D_ROWW: if (row_rom_ack || (pf_valid && pf_have)) begin
+                    rowdata <= fx ? reflected_row((pf_valid && pf_have) ? rowdata_pf : row_rom_q)
+                                  : ((pf_valid && pf_have) ? rowdata_pf : row_rom_q);
                     rowfifth <= fx ? reflected_fifth((pf_valid && pf_have) ? rowfifth_pf : rom_fifth)
                                    : ((pf_valid && pf_have) ? rowfifth_pf : rom_fifth);
                     if (has_next) begin                         // ask for the next column's row now
-                        rom_addr <= row_address(tempcode_y + {10'd0, xoffset(xsel_n)}, src_row); rom_req <= 1'b1;
+                        row_rom_addr <= row_address(tempcode_y + {10'd0, xoffset(xsel_n)}, src_row); row_rom_req <= 1'b1;
                         pf_valid <= 1'b1; pf_have <= 1'b0;
-                    end else begin rom_req <= 1'b0; pf_valid <= 1'b0; end
-                    st <= D_PIX;
+                    end else begin row_rom_req <= 1'b0; pf_valid <= 1'b0; end
+                    st <= (draw_violent && streaming && empty_from_flags(
+                        (pf_valid && pf_have) ? empty_flags_pf : vio_empty_flags,drawmode))
+                        ? D_NEXTTX : D_PIX;
                 end
 
                 // The pixel loop is two stages: this state decides pixel n
@@ -665,3 +758,79 @@ module k053247_draw #(
         end
     end
 endmodule
+
+// Pocket adaptation of the read-only row-cache request/ACK contract compared
+// with decoryah Arcade-ViolentStorm_MiSTer @5865269bc1b149645489a9ad141b4d95097c7530,
+// rtl/spr_rowcache.sv (GPL-3.0, original provenance in docs/M3_VIO03_CACHE.md).
+// Fully associative32rows, raw64bits, round-robin replacement. The Pocket
+// has one remaining M10K: pack each row into two32bit words of ONE simple-dual
+// port memory. Tags/valid are registers. Never use descriptor attributes as data.
+`default_nettype none
+module pregx_vio_sprite_cache (
+    input wire clk,reset,enable,
+    input wire c_req,input wire [19:0] c_addr,
+    output wire c_ack,output wire [63:0] c_q,
+    output wire m_req,output wire [19:0] m_addr,
+    input wire m_ack,input wire [63:0] m_q
+);
+    typedef enum logic [2:0] {C_IDLE,C_LOOK,C_READ0,C_READ1,C_RESP,C_MISS,C_FILLHI} cache_state_t;
+    cache_state_t state;
+    (* ramstyle="logic" *) logic [19:0] tags[32];
+    logic [31:0] valid;
+    logic [4:0] replace_at,read_slot;
+    logic lookup_hit,hit_r;
+    logic [4:0] lookup_slot;
+    logic [19:0] address_r;
+    (* ramstyle="M10K" *) logic [31:0] data_mem[64];
+    logic [31:0] data_q,low_r,high_r,fill_high;
+    wire same_request=c_req && c_addr==address_r;
+    wire fill_low=enable && !reset && state==C_MISS && same_request && m_ack;
+    wire [5:0] read_address={read_slot,state==C_READ0};
+
+    always_comb begin
+        lookup_hit=1'b0;lookup_slot=5'd0;
+        for(int i=0;i<32;i++)
+            if(valid[i] && tags[i]==c_addr) begin
+                lookup_hit=1'b1;lookup_slot=5'(i);
+            end
+    end
+    always_ff @(posedge clk) begin
+        data_q<=data_mem[read_address];
+        if(fill_low) data_mem[{replace_at,1'b0}]<=m_q[31:0];
+        else if(enable && !reset && state==C_FILLHI)
+            data_mem[{replace_at,1'b1}]<=fill_high;
+    end
+    always_ff @(posedge clk) begin
+        if(reset || !enable) begin
+            state<=C_IDLE;valid<='0;replace_at<='0;read_slot<='0;
+            address_r<='0;hit_r<=1'b0;
+        end else case(state)
+            C_IDLE:if(c_req) begin
+                address_r<=c_addr;read_slot<=lookup_slot;hit_r<=lookup_hit;
+                state<=C_LOOK;
+            end
+            C_LOOK:if(!same_request) state<=C_IDLE;
+                else state<=hit_r ? C_READ0 : C_MISS;
+            C_READ0:if(!same_request) state<=C_IDLE;
+                else begin low_r<=data_q;state<=C_READ1;end
+            C_READ1:if(!same_request) state<=C_IDLE;
+                else begin high_r<=data_q;state<=C_RESP;end
+            C_RESP:state<=C_IDLE;
+            C_MISS:if(!same_request) state<=C_IDLE;
+                else if(m_ack) begin fill_high<=m_q[63:32];state<=C_FILLHI;end
+            C_FILLHI:begin
+                tags[replace_at]<=address_r;valid[replace_at]<=1'b1;
+                replace_at<=replace_at+5'd1;state<=C_IDLE;
+            end
+            default:state<=C_IDLE;
+        endcase
+    end
+    // Requests can be withdrawn or change on an abort; no stale response is
+    // admitted. A completed miss may finish its immutable fill after c_req
+    // changes. Full machine/profile/ROM reset invalidates every cache entry.
+    assign m_req=enable ? (!reset && state==C_MISS && same_request) : c_req;
+    assign m_addr=enable ? address_r : c_addr;
+    assign c_ack=enable ? (!reset && same_request && (state==C_RESP || fill_low)) : m_ack;
+    assign c_q=enable && state==C_RESP ? {high_r,low_r} : m_q;
+endmodule
+`default_nettype wire

@@ -143,7 +143,7 @@ module tb_system_top #(
         `ROM_PORT(vram_req, vram_ack, cnt_vram, lat_vram)
     end
 
-    gaia_core #(.HEXDIR("../rtl/data"), .STEP_COST_BUS(STEP_COST_BUS), .STEP_COST_INT(STEP_COST_INT)) u_core (
+    gaia_core #(.HEXDIR("../rtl/data"), .STEP_COST_BUS(STEP_COST_BUS), .STEP_COST_INT(STEP_COST_INT)) u_core (.violent(1'b0), 
         .mystic(1'b0), .mystic_p12(16'hffff), .mystic_p34(16'hffff), .mystic_in0(8'hff),
         .tile_fifth(8'd0), .spr_fifth(16'd0),
         .clk(clk), .pause(pause), .reset(reset), .pix_sync(1'b0), .vid_reset(reset),

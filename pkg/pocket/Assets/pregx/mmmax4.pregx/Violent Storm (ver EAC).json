@@ -1,0 +1,21 @@
+{
+  "instance": {
+    "magic": "APF_VER_1",
+    "data_path": "",
+    "data_slots": [
+      {
+        "id": 1,
+        "filename": "viostorm.rom"
+      },
+      {
+        "id": 2,
+        "filename": "viostorm.sav"
+      }
+    ],
+    "memory_writes": [],
+    "core_select": {
+      "id": 0,
+      "select": false
+    }
+  }
+}

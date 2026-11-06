@@ -1,11 +1,24 @@
-# Releases
+# Changelog
+
+## 0.3 — 2026-11-06
+
+- Adds Violent Storm (ver EAC), confirmed working on Pocket, with original-data
+  ROM builder, independent save/settings and matching menu preset.
+- Fixes horizontal sprite gaps and incomplete sprites in the final demo scene.
+- Adapts plasticbugs Gaiapolis 0.3.2 graphics/audio improvements.
+- Preserves Gaiapolis, Mystic Warriors and the 0.2.1 intro-name workaround.
+- Adds the three-game banner, GitHub creator icon and new Pocket captures.
+- Keeps the SD ZIP to used runtime files and one README with required notices;
+  corresponding source and ROM builders are a separate download.
+- Gateware remains byte-identical to the tested private candidate; no original
+  game ROM, program, graphics, EEPROM or save is patched.
 
 ## 0.2.1 — 2026-10-24
 
 - Mystic Warriors: scene-specific compatibility workaround removes lingering red
   ninja names after the portrait presentation. Portrait names and normal captions
   remain visible. Original game data is not patched.
-- The user confirms the fix on Pocket and continued normal operation of both
+- Pocket testing confirms the fix on Pocket and continued normal operation of both
   Mystic Warriors and Gaiapolis. Uses the unchanged tested intro01 bitstream;
   release version and packaging metadata become 0.2.1.
 - Public source includes the exact fitted RTL and the enabled project macro;

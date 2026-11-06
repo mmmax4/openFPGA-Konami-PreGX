@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Original captured states through unchanged current-source RGB models.
 
-Historical MAME pixels and the user's screenshot are not read as golden data.
+Historical MAME pixels and the Pocket screenshot are not read as golden data.
 Outputs are private, source-bound static-state renderer inputs, not gameplay.
 """
 import argparse

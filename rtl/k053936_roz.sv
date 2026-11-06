@@ -96,6 +96,10 @@ module k053936_roz #(
         return {{16{v[15]}}, v};
     endfunction
 
+    // Keep these stage registers outside DSP input cells: the fitted
+    // FF-to-DSP clock skew otherwise violates fast-corner hold. This local
+    // implementation hint leaves the registered equations/cycles unchanged.
+    (* altera_attribute = "-name QII_AUTO_PACKED_REGISTERS OFF" *)
     logic signed [31:0] incxx, incxy, incyx, incyy;
     logic        [31:0] startx, starty;      // 16.16, wraps as uint32 like MAME
 
@@ -166,7 +170,9 @@ module k053936_roz #(
         return r;
     endfunction
     wire [6:0] ent_now = enc(match);
-    wire [3:0] nib_now = ti[0] ? d1[3:0] : d1[7:4];
+    // PCB palette packing: even tile low nibble, odd tile high nibble.
+    // plasticbugs932df6b0 / decoryah ebcb5932; keep the local timing repair.
+    wire [3:0] nib_now = ti[0] ? d1[7:4] : d1[3:0];
 
     always_ff @(posedge clk)
         for (int i = 0; i < NENT; i++) match[i] <= valid[i] && (tag[i] == ti_now);

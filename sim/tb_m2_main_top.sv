@@ -24,7 +24,7 @@ module tb_m2_main_top (
     logic map_req,chr_req;
     assign unexpected_roz=map_req||chr_req;
     gaia_main u_main (
-        .clk(clk),.reset(reset),.pause(pause),.mystic(1'b1),.cen_16m(cen_16m),
+        .violent(1'b0), .clk(clk),.reset(reset),.pause(pause),.mystic(1'b1),.cen_16m(cen_16m),
         .raster_start(raster_start),.raster_line(raster_line),
         .mystic_p12(16'hffff),.mystic_p34(16'hffff),.mystic_in0(8'hff),
         .rom_req(rom_req),.rom_addr(rom_addr),.rom_ack(rom_ack),.rom_q(rom_q),

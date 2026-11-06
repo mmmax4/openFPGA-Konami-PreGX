@@ -8,7 +8,7 @@ module tb_audio_pause_top(
  output wire [15:0] l,r,output wire timer,done,busy,
  output wire [16:0] stream_pos,output wire [15:0] timer_count
 );
- k054539 #(.HEXDIR("rtl/data")) chip(.clk(clk),.reset(reset),.cen_48k(cen && !pause),.gain_alt(1'b0),
+ k054539 #(.HEXDIR("rtl/data")) chip(.gain_vio(1'b0), .clk(clk),.reset(reset),.cen_48k(cen && !pause),.gain_alt(1'b0),
   .cs(cs),.wr(wr),.rd(rd),.addr(addr),.wdata(wdata),.rdata(rdata),.rd_stall(stall),
   .rom_req(req),.rom_addr(rom_addr),.rom_ack(ack),.rom_q(q),.timer_out(timer),.snd_l(l),.snd_r(r));
  reg was_busy;

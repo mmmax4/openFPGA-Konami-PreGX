@@ -25,3 +25,4 @@ sim/obj*/
 target/pocket/analogizer/debounce.vhd
 target/pocket/analogizer/dualshock_controller.v
 target/pocket/analogizer/ps2_keyboard.vhd
+ref/mame0289/

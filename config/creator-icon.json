@@ -1,0 +1,14 @@
+{
+  "source": "https://github.com/mmmax4",
+  "avatar_sha256": "00e806e1452d661ca126a8fad04218a0e19314eb7f6268c53891f9fc4ba3e66e",
+  "icon_sha256": "40bf37662e1e4273e099ec15bec817f06b81e020ac91370a75388ae6fb8536f6",
+  "preview_sha256": "55207949b360c4fa2fa4be0d56cf94d2b9ce83880a65d03096b5a4012f383599",
+  "dimensions": [
+    36,
+    36
+  ],
+  "bytes": 2592,
+  "format": "SDK 16-bit monochrome little endian; upper eight bits brightness; stored90degCCW",
+  "threshold": 48,
+  "physical_Info_icon_test": "pending; software conversion/rotation/roundtrip checked"
+}

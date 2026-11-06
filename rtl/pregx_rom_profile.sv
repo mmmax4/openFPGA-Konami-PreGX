@@ -8,6 +8,7 @@ module pregx_rom_profile (
     input  logic        dl_we,       // actual gaia_mem port: sample rising edge
     input  logic [24:0] dl_addr,
     input  logic  [7:0] dl_data,
+    output logic        violent,
     output logic        mystic,
     output logic        identified,
     output logic        valid,
@@ -24,7 +25,7 @@ module pregx_rom_profile (
     logic [31:0] crc;
     logic [24:0] next_addr;
     initial begin
-        mystic=1'b0; identified=1'b0; valid=1'b0;
+        violent=1'b0; mystic=1'b0; identified=1'b0; valid=1'b0;
         we_d=1'b0; ordered=1'b0; crc=32'hffffffff; next_addr=25'd0;
     end
     wire byte_we = dl_we && !we_d;
@@ -34,6 +35,18 @@ module pregx_rom_profile (
         v = c ^ {24'd0,d};
         for (int i=0;i<8;i++) v = (v >> 1) ^ (v[0] ? 32'hedb88320 : 32'd0);
         return v;
+    endfunction
+    // A reflected CRC byte step is invertible. Move fixed-target decode
+    // before its eight XOR stages; only an8-bit XOR/compare depends on dl_data.
+    // Every call below has a constant target; no state or extra clock is added.
+    function automatic logic [31:0] crc_preimage(input logic [31:0] target);
+        logic [31:0] v;
+        v = target;
+        for (int i=0;i<8;i++) v = v[31] ? ((v ^ 32'hedb88320) << 1) | 32'd1 : (v << 1);
+        return v;
+    endfunction
+    function automatic logic crc_matches(input logic [31:0] c, input logic [7:0] d, input logic [31:0] pre);
+        return (c[31:8] == pre[31:8]) && ((c[7:0] ^ d) == pre[7:0]);
     endfunction
     wire [31:0] crc_next = advance(crc,dl_data);
     always_ff @(posedge clk) begin
@@ -53,13 +66,16 @@ module pregx_rom_profile (
                 if (dl_addr != next_addr) ordered <= 1'b0;
                 if (ordered && dl_addr == next_addr) begin
                     if (dl_addr == 25'd255) begin
-                        identified <= (~crc_next == GAIA_PREFIX) || (~crc_next == MYSTIC_PREFIX);
-                        if (~crc_next == MYSTIC_PREFIX) mystic <= 1'b1;
-                        else if (~crc_next == GAIA_PREFIX) mystic <= 1'b0;
+                        identified <= (crc_matches(crc,dl_data,crc_preimage(~GAIA_PREFIX))) || (crc_matches(crc,dl_data,crc_preimage(~MYSTIC_PREFIX))) || (crc_matches(crc,dl_data,crc_preimage(~32'he59535d0)));
+                        violent <= (crc_matches(crc,dl_data,crc_preimage(~32'he59535d0)));
+                        if (crc_matches(crc,dl_data,crc_preimage(~32'he59535d0))) mystic<=1'b0;
+                        else if (crc_matches(crc,dl_data,crc_preimage(~MYSTIC_PREFIX))) mystic <= 1'b1;
+                        else if (crc_matches(crc,dl_data,crc_preimage(~GAIA_PREFIX))) mystic <= 1'b0;
                     end
                     valid <= identified &&
-                        ((!mystic && dl_addr == GAIA_LAST && ~crc_next == GAIA_CRC) ||
-                         (mystic && dl_addr == MYSTIC_LAST && ~crc_next == MYSTIC_CRC));
+                        ((!violent && !mystic && dl_addr == GAIA_LAST && crc_matches(crc,dl_data,crc_preimage(~GAIA_CRC))) ||
+                         (!violent && mystic && dl_addr == MYSTIC_LAST && crc_matches(crc,dl_data,crc_preimage(~MYSTIC_CRC))) ||
+                         (violent && dl_addr == 25'h124007f && crc_matches(crc,dl_data,crc_preimage(~32'h14849de9))));
                 end
             end
         end

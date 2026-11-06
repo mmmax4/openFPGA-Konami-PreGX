@@ -9,6 +9,7 @@ module pregx_rgb_line #(
     parameter int AW = 9
 ) (
     input logic clk, reset,
+    input logic violent,
     input logic line_start,
     input logic [23:0] backdrop,
     input logic [8:0] shadow_delta [9],
@@ -16,6 +17,9 @@ module pregx_rgb_line #(
     output logic busy,
     input logic fragment_valid,
     output logic fragment_ready,
+    // Readiness for an externally proven bounded, unique-X tile stream.
+    // The ordinary admission interface below still enforces all hazards.
+    output wire stream_ready,
     input logic [AW-1:0] fragment_x,
     // Read-only admission probe: keeps a producer ready path before its X mux.
     input logic [AW-1:0] probe_x,
@@ -36,6 +40,11 @@ module pregx_rgb_line #(
 );
     localparam int DEPTH = 1 << AW;
     logic bank, clearing, initialized;
+    // Raw reset still cancels every state/RAM write on its original edge.
+    // A ready output under raw reset cannot transfer work; initialized and
+    // line clearing mask the delayed qualifier when normal operation resumes.
+    (* preserve, dont_merge *) logic admission_reset = 1'b1;
+    always_ff @(posedge clk) admission_reset <= reset;
     logic [AW-1:0] clear_x;
     logic [23:0] line_backdrop;
     logic [8:0] line_delta[9];
@@ -66,17 +75,18 @@ module pregx_rgb_line #(
         for (int i=0;i<4;i++)
             if (pending[i] && addresses[i]==fragment_x) address_pending=1'b1;
     end
-    assign fragment_ready = initialized && !reset && !line_start && !clearing &&
-                            !address_pending && {1'b0,fragment_x} < (AW+1)'(WIDTH);
+    assign fragment_ready = initialized && !admission_reset && !line_start && !clearing &&
+                            !address_pending && {1'b0,fragment_x} < (violent ? (AW+1)'(384) : (AW+1)'(WIDTH));
     logic probe_pending;
     always_comb begin
         probe_pending = 1'b0;
         for (int i=0;i<4;i++)
             if (pending[i] && addresses[i]==probe_x) probe_pending=1'b1;
     end
-    assign probe_ready = initialized && !reset && !line_start && !clearing &&
-                         !probe_pending && {1'b0,probe_x} < (AW+1)'(WIDTH);
-    wire accept = fragment_valid && fragment_ready;
+    assign probe_ready = initialized && !admission_reset && !line_start && !clearing &&
+                         !probe_pending && {1'b0,probe_x} < (violent ? (AW+1)'(384) : (AW+1)'(WIDTH));
+    assign stream_ready = initialized && !admission_reset && !line_start && !clearing;
+    wire accept = fragment_valid && fragment_ready && !reset;
     assign palette_addr = fragment_pen;
     assign busy = clearing || (|pending);
 
@@ -139,15 +149,16 @@ module pregx_rgb_line #(
             brightness0<=fragment_brightness;
             pending<={pending[2:0],accept};
             if (clearing) begin
-                if (clear_x==AW'(WIDTH-1)) clearing<=1'b0;
+                if (clear_x==(violent ? AW'(383) : AW'(WIDTH-1))) clearing<=1'b0;
                 else clear_x<=clear_x+1'b1;
             end
-            if (accept) begin
-                addresses[0]<=fragment_x; level0<=fragment_level;
-                tile0<=fragment_tile; top0<=fragment_toppri;
-                shadow0<=fragment_shadow;
-                condition0<=fragment_condition; z0<=fragment_z; pri0<=fragment_pri;
-            end
+            // Only pending[0] observes this payload. Capture bubbles too,
+            // keeping alpha/category classification out of these FF enables.
+            // The older payload is consumed on this edge before NBA updates.
+            addresses[0]<=fragment_x; level0<=fragment_level;
+            tile0<=fragment_tile; top0<=fragment_toppri;
+            shadow0<=fragment_shadow;
+            condition0<=fragment_condition; z0<=fragment_z; pri0<=fragment_pri;
             if (pending[0]) begin
                 addresses[1]<=addresses[0];
                 state_pipe[1]<=next_state; write_pipe[1]<=write_allowed;

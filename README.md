@@ -1,109 +1,85 @@
 # Konami pre-GX — Analogue Pocket openFPGA
 
-<p align="center">
-  <img src="docs/images/banner.png" alt="Konami pre-GX: currently playable games">
-</p>
+<p align="center"><img src="docs/images/banner.png" alt="Konami pre-GX: Gaiapolis, Mystic Warriors and Violent Storm"></p>
 
 A multi-game Konami arcade core for **Analogue Pocket**, by **mmmax4**, based on
-[plasticbugs/Scott's Gaiapolis core](https://github.com/plasticbugs/analogue-pocket-gaiapolis).
+[plasticbugs / Scott's Gaiapolis core](https://github.com/plasticbugs/analogue-pocket-gaiapolis).
 
-The goal is to support the games in Konami's pre-GX `mystwarr` hardware family
-through one shared core and game menu. **Only Gaiapolis and Mystic Warriors are
-currently playable.** The other games below are development goals.
-
-<p align="center">
-  <img src="docs/images/gaiapolis-title.png" height="224" alt="Gaiapolis title captured on Analogue Pocket">
-  <img src="docs/images/mystic-warriors-title.png" height="224" alt="Mystic Warriors title captured on Analogue Pocket">
-</p>
-
-**License:** [GNU GPLv3](LICENSE) for the applicable project code. Original
-third-party licenses and notices remain in effect; see [licensing](LICENSING.md).
-
-Some inherited Analogizer dependencies have noncommercial terms. These are
-component-specific terms, preserved separately from the project's GPL license.
-See [inherited dependency terms](LICENSING.md#inherited-noncommercial-terms).
+**Release [0.3](https://github.com/mmmax4/openFPGA-Konami-PreGX/releases/tag/v0.3)**
+adds **Violent Storm**, incorporates Gaiapolis 0.3.2 graphics/audio improvements,
+and preserves Mystic Warriors' confirmed intro-name workaround from 0.2.1.
+The missing sprite rows seen in earlier Violent Storm builds are confirmed
+resolved in Pocket gameplay and the final attract/demo scene.
 
 ## Game support
 
-| Game / verified target revision | Current status |
+| Game / verified target revision | Status |
 | --- | --- |
-| **Gaiapolis (ver EAF)** | **Playable**, tested on Pocket; vertical presentation |
-| **Mystic Warriors (ver EAA)** | **Playable**, tested on Pocket; intro-name workaround included |
-| Violent Storm (ver EAC) | Planned — next game to integrate |
+| **Gaiapolis (ver EAF)** | **Playable, tested on Pocket**; vertical presentation |
+| **Mystic Warriors (ver EAA)** | **Playable, tested on Pocket**; intro-name workaround retained |
+| **Violent Storm (ver EAC)** | **Playable, tested on Pocket**; horizontal presentation |
 | Metamorphic Force (ver EAA) | Planned |
 | Martial Champion (ver EAB) | Planned |
 | Monster Maulers (ver EAA) | Planned |
 
-The banner shows the two currently playable games. Each additional logo will
-return to its original position when its game becomes playable; see
-[banner layout](docs/BANNER.md).
+Only the three playable profiles appear in the game menu and banner. Other
+revisions and clones are not automatically supported.
 
-Planned profiles are not exposed as playable selections. Additional revisions
-and clones are not automatically supported.
+## Install
 
-## Current development status
+Download **mmmax4.pregx-v0.3.zip** from the
+[release page](https://github.com/mmmax4/openFPGA-Konami-PreGX/releases/tag/v0.3).
+Copy **Cores/**, **Platforms/**, **Assets/** and **Presets/** to the SD root,
+merging their contents. **Presets is required** for the correct per-game menu
+labels. Keep existing original ROMs and saves. Open **Arcade Multi → Konami pre-GX**.
 
-The current release is **0.2.1**, using the **intro01** hardware tested on Pocket.
-The user confirms that the ninja names disappear after their portrait scene
-and that Mystic Warriors and Gaiapolis continue to run well. Earlier audio,
-intro-lettering and split-white transition fixes are retained. A complete
-Mystic Warriors playthrough was reported on an earlier build; a new complete
-playthrough of this release is not claimed.
+The SD package contains only those four runtime trees and one README.txt.
+ROM builders, source and development documents stay in the repository and the
+separate **mmmax4.pregx-v0.3-source.zip** download. See
+[original ROM setup](docs/ROM_SETUP.md); no ROM, factory EEPROM or save is supplied.
 
-### Mystic Warriors: lingering intro names
+## Features and validation
 
-The five portrait name labels previously remained red over the following
-truck scene. Release **0.2.1** includes a deliberately narrow **scene-specific
-compatibility workaround**: it recognizes the original eight name descriptors
-and the post-portrait layer layout, then omits those entries from the draw list.
-Portrait names and normal captions are preserved. Gaiapolis bypasses the rule.
-It does not patch the game program, graphics, ROMs or EEPROM, and it is not
-presented as a proven general rule of the original sprite chip.
+The shared menu provides game selection, independent per-game EEPROM settings,
+Test/Service assignments, actual board DIP switches and display options.
+Opening the Pocket core-options menu freezes the game. Gaiapolis retains its
+vertical presentation. Mystic Warriors' scene-specific name workaround remains
+enabled; [explanation and before/after captures](docs/INTRO_WORKAROUND.md).
+No game program, graphics, ROM or EEPROM is patched.
 
-<table align="center">
-  <tr><th align="center">Before — 0.2.0 / Pocket04</th><th align="center">After — 0.2.1 / tested intro01</th></tr>
-  <tr><td align="center"><img src="docs/images/mystic-intro-names-before.png" width="288" alt="Pocket04: five red ninja names remain over the truck scene"></td><td align="center"><img src="docs/images/mystic-intro-names-after.png" width="288" alt="intro01: truck scene with no residual ninja names"></td></tr>
-</table>
+Physical Pocket testing confirms the three games work with this hardware.
+Violent Storm captures cover gameplay, second-stage action and the previously
+affected final demo scene. The ordinary transition fade in that capture is
+expected. This is a precise scene/gameplay observation, not a complete
+playthrough claim. [Validation details](docs/VALIDATION.md).
 
-<p align="center"><em>Real Pocket captures at different moments of the same intro
-sequence; lossless exports, without retouching.</em></p>
+The creator Info icon now uses the [mmmax4 GitHub avatar](docs/CREATOR_ICON.md).
+Analogizer CRT/SNAC and high-score persistence remain separately unqualified.
 
-The disappearance is confirmed by the user's Pocket test. The screenshots
-illustrate the truck scenes; they are not a frame-by-frame boundary measurement.
-See [how the workaround works, retained captions and validation](docs/INTRO_WORKAROUND.md).
+## Pocket screenshots
 
-The menu provides game selection, separate per-game EEPROM settings/saves,
-Test and Service assignments (initially Unassigned), physical board DIP
-switches, and display options. Opening the Pocket core-options menu freezes
-the game. Mystic Warriors includes a fill-screen option; Gaiapolis keeps its
-vertical presentation. The core is grouped under **Arcade Multi**.
-
-Analogizer CRT/SNAC operation has not been physically qualified for these
-profiles. EEPROM settings persistence and high-score persistence are separate;
-high-score persistence is not claimed.
-
-## Screenshots
-
-Original Pocket captures, exported losslessly at their native orientation.
-The Sunset Riders billboard below is a scene **inside Mystic Warriors**.
+Original Pocket captures, exported losslessly with their native pixels and
+orientation. [All 13 captures and provenance](docs/POCKET_0.3.md).
 
 <p align="center">
-  <img src="docs/images/mystic-warriors-gameplay.png" width="288" alt="Mystic Warriors gameplay on Pocket">
-  <img src="docs/images/mystic-warriors-sunset-riders.png" width="288" alt="Sunset Riders billboard inside Mystic Warriors on Pocket">
+<img src="docs/images/pocket-0.3/violent-storm-stage2.png" width="384" alt="Violent Storm second-stage action on Pocket">
+<img src="docs/images/pocket-0.3/violent-storm-demo-wade.png" width="384" alt="Violent Storm final demo scene during its ordinary transition fade">
+</p>
+<p align="center">
+<img src="docs/images/pocket-0.3/mystic-warriors-truck.png" width="288" alt="Mystic Warriors truck scene with intro-name workaround preserved">
+<img src="docs/images/pocket-0.3/gaiapolis-gameplay.png" height="224" alt="Gaiapolis vertical gameplay on Pocket">
 </p>
 
-## Source and setup
+## Source and credits
 
-Download [**0.2.1**](https://github.com/mmmax4/openFPGA-Konami-PreGX/releases/tag/v0.2.1),
-the ROM-free release using the tested **intro01** hardware and two-game banner.
-The release includes the Pocket core, ROM builders, corresponding source and
-checksums. See [release changes](CHANGELOG.md), [build instructions](docs/BUILD.md),
-[ROM setup](docs/ROM_SETUP.md), [validation scope](docs/VALIDATION.md),
-[technical references](docs/REFERENCES.md), [credits](CREDITS.md) and [licensing](LICENSING.md).
+[Changes](CHANGELOG.md) · [Build](docs/BUILD.md) · [ROM setup](docs/ROM_SETUP.md) ·
+[References](docs/REFERENCES.md) · [Credits](CREDITS.md) · [Licensing](LICENSING.md)
 
-Game ROMs, factory EEPROM dumps, saves and private recordings are not included.
-Supply the original ROM set for each supported revision. Existing saves should
-be retained; this repository does not install or replace them.
+Applicable project code retains [GNU GPLv3](LICENSE). Original component-specific
+terms remain in effect, including inherited Analogizer noncommercial notices;
+[their compatibility assessment is unchanged](LICENSING.md#inherited-noncommercial-terms).
+Corresponding source accompanies each release. The single SD README contains
+required notices and license texts; source keeps its normal license files.
 
 Related Pocket projects: [Asterix](https://github.com/mmmax4/openFPGA-Asterix)
 and [MooBucky](https://github.com/mmmax4/openFPGA-MooBucky).

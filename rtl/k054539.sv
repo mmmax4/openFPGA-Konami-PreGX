@@ -31,11 +31,13 @@ module k054539 #(
     parameter string HEXDIR = "rtl/data",
     // Q2.14 per-channel gain, MSB channel 7; 0x4000 = 1.0
     parameter logic [7:0][15:0] GAIN_Q14 = {8{16'h4000}},
-    parameter logic [7:0][15:0] GAIN_Q14_ALT = GAIN_Q14
+    parameter logic [7:0][15:0] GAIN_Q14_ALT = GAIN_Q14,
+    parameter logic [7:0][15:0] GAIN_Q14_VIO = GAIN_Q14
 ) (
     input  logic        clk,
     input  logic        reset,
     input  logic        cen_48k,        // one pulse per output sample
+    input  logic        gain_vio,
     input  logic        gain_alt,       // stable board profile, changed under reset
 
     // Z80 side
@@ -67,6 +69,44 @@ module k054539 #(
     wire        cpu_wr    = cs && wr;
     wire        cpu_wr_ch = cpu_wr && !addr[9];         // 0x000-0x1ff
     wire        cpu_wr_g  = cpu_wr &&  addr[9];         // 0x200-0x22f
+    typedef enum logic [4:0] {
+        A_IDLE, A_RVB_RD, A_RVB_CLR, A_CH, A_CHF, A_CHX, A_CHV1, A_CHV2, A_CHV3, A_CHV4, A_STEP, A_ROM, A_ROMW, A_ROM2, A_DEC,
+        A_RVB_RMW, A_RVB_RD2, A_RVB_WR, A_NEXT, A_OUT
+    } ast_t;
+    ast_t ast;
+
+    // Gaia0.3.2 audio behavior adapted from plasticbugs c1a662e6 / decoryah
+    // ebcb5932 (GPL-3.0). Keep the confirmed Mystic/Vio audio path unchanged.
+    // Profile changes occur under the Pocket reset/settle guard.
+    (* preserve, dont_merge *) logic accurate_gaia;
+    always_ff @(posedge clk) accurate_gaia <= !(gain_alt || gain_vio);
+    logic [23:0] posl[8], pending_pos[8];
+    logic [7:0] ko_pend, ko_next;
+    logic cp_run;
+    logic [1:0] cp_i;
+    logic [2:0] cp_ch, ko_first;
+    logic [23:0] cp_value;
+    wire lat_on = accurate_gaia && greg[6'h2f][0];
+    wire lat_hit = cpu_wr_ch && lat_on && !addr[8] &&
+                   addr[4:0] >= 5'h0c && addr[4:0] <= 5'h0e;
+    wire cpu_chw = cpu_wr_ch && !lat_hit;
+    wire key_on = cpu_wr_g && addr == 10'h214;
+    wire cp_start = accurate_gaia && !cp_run && ko_pend != 8'd0 &&
+                    ast == A_IDLE && !wb_run && !cpu_chw;
+    wire [8:0] cp_addr = {1'b0, cp_ch, 5'h0c} + {7'd0, cp_i};
+    wire [7:0] cp_byte = cp_i == 0 ? cp_value[7:0] :
+                         cp_i == 1 ? cp_value[15:8] : cp_value[23:16];
+    always_comb begin
+        ko_first = 3'd0;
+        for (int i = 7; i >= 0; i--) if (ko_pend[i]) ko_first = 3'(i);
+    end
+    always_comb begin
+        // Pending bits track position copies, not the active-channel mask.
+        // MAME copies positions at214 even when a later215 keys the voice off.
+        ko_next = ko_pend;
+        if (cp_start) ko_next[ko_first] = 1'b0;
+        if (lat_on && key_on) ko_next = ko_next | wdata;
+    end
     // the renderer's position write-back, three bytes through the one write
     // port; a CPU write to the same bytes is newer and cancels it
     logic        wb_run;
@@ -78,8 +118,9 @@ module k054539 #(
     always_ff @(posedge clk) begin
         chreg_cpu_q <= chreg[addr[8:0]];
         chreg_q     <= chreg[chreg_rd];
-        if (cpu_wr_ch)   chreg[addr[8:0]] <= wdata;
-        else if (wb_run) chreg[wb_addr]   <= wb_byte;
+        if (cpu_chw) chreg[addr[8:0]] <= wdata;
+        else if (cp_run) chreg[cp_addr] <= cp_byte;
+        else if (wb_run) chreg[wb_addr] <= wb_byte;
     end
     // 32 KB chip RAM: byte port for the Z80, 16-bit port for the reverb ring
     // 32 KB chip RAM as two byte-wide true dual-port blocks (low and high
@@ -142,6 +183,8 @@ module k054539 #(
         if (reset) begin
             for (int i = 0; i < 48; i++) greg[i] <= '0;
             wb_run <= 1'b0; wb_i <= '0;
+            ko_pend <= '0; cp_run <= 1'b0; cp_i <= '0; cp_ch <= '0; cp_value <= '0;
+            for (int i = 0; i < 8; i++) begin posl[i] <= '0; pending_pos[i] <= '0; end
             cur_ptr <= '0; rom_bank <= '0; pst <= P_IDLE; strm_req <= 1'b0;
             timer_out <= 1'b0; tcount <= '0; rd_d <= 1'b0;
         end else begin
@@ -168,11 +211,48 @@ module k054539 #(
             endcase
 
             // ---- the renderer's key-off and position write-back ----
-            if (ko_we) greg[6'h2c][ko_ch] <= 1'b0;
+            if (ko_we && (!accurate_gaia || !greg[6'h2f][7])) greg[6'h2c][ko_ch] <= 1'b0;
+            ko_pend <= ko_next;
+            if (lat_hit) begin
+                case (addr[4:0])
+                    5'h0c: posl[addr[7:5]][7:0] <= wdata;
+                    5'h0d: posl[addr[7:5]][15:8] <= wdata;
+                    default: posl[addr[7:5]][23:16] <= wdata;
+                endcase
+            end
+            // A newer direct position-byte write (with the chip disabled)
+            // must survive any earlier queued/in-progress RAM copy.
+            if (accurate_gaia && cpu_chw && !addr[8] &&
+                addr[4:0] >= 5'h0c && addr[4:0] <= 5'h0e) begin
+                case (addr[4:0])
+                    5'h0c: begin
+                        pending_pos[addr[7:5]][7:0] <= wdata;
+                        if (cp_run && cp_ch == addr[7:5]) cp_value[7:0] <= wdata;
+                    end
+                    5'h0d: begin
+                        pending_pos[addr[7:5]][15:8] <= wdata;
+                        if (cp_run && cp_ch == addr[7:5]) cp_value[15:8] <= wdata;
+                    end
+                    default: begin
+                        pending_pos[addr[7:5]][23:16] <= wdata;
+                        if (cp_run && cp_ch == addr[7:5]) cp_value[23:16] <= wdata;
+                    end
+                endcase
+            end
+            // Capture the complete position at the CPU's key-on transaction.
+            if (lat_on && key_on)
+                for (int i = 0; i < 8; i++) if (wdata[i]) pending_pos[i] <= posl[i];
+            if (cp_start) begin
+                cp_run <= 1'b1; cp_i <= 2'd0; cp_ch <= ko_first;
+                cp_value <= pending_pos[ko_first];
+            end else if (cp_run && !cpu_chw) begin
+                if (cp_i == 2'd2) cp_run <= 1'b0;
+                else cp_i <= cp_i + 2'd1;
+            end
             if (wb_we) begin wb_run <= 1'b1; wb_i <= '0; wb_chl <= wb_ch; wb_posl <= wb_pos; end
             else if (wb_run) begin
-                if (cpu_wr_ch && addr[8:5] == {1'b0, wb_chl} && addr[4:0] >= 5'h0c && addr[4:0] <= 5'h0e) wb_run <= 1'b0;
-                else if (!cpu_wr_ch) begin
+                if (cpu_chw && addr[8:5] == {1'b0, wb_chl} && addr[4:0] >= 5'h0c && addr[4:0] <= 5'h0e) wb_run <= 1'b0;
+                else if (!cpu_chw) begin
                     if (wb_i == 2'd2) wb_run <= 1'b0; else wb_i <= wb_i + 2'd1;
                 end
             end
@@ -180,8 +260,10 @@ module k054539 #(
             // ---- writes to the globals (channel bytes go to the RAM above) ----
             if (cpu_wr_g) begin
                 case (addr)
-                    10'h214: greg[6'h2c] <= greg[6'h2c] | wdata;               // key on
-                    10'h215: greg[6'h2c] <= greg[6'h2c] & ~wdata;              // key off
+                    10'h214: if (!accurate_gaia || !greg[6'h2f][7])
+                                 greg[6'h2c] <= greg[6'h2c] | wdata;
+                    10'h215: if (!accurate_gaia || !greg[6'h2f][7])
+                                 greg[6'h2c] <= greg[6'h2c] & ~wdata;
                     10'h22d: cur_ptr <= cur_ptr + 17'd1;      // the RAM write is port A above
                     10'h22e: begin rom_bank <= wdata; cur_ptr <= '0; end
                     10'h227: begin tcount <= '0; timer_out <= 1'b0; end
@@ -205,18 +287,13 @@ module k054539 #(
     // eight channels. Every position step fetches a sample, as MAME does, so
     // a pitch above 1.0 costs one ROM read per step; DPCM depends on that.
     // The ROM port is shared with the Z80's streaming reads, which win.
-    typedef enum logic [4:0] {
-        A_IDLE, A_RVB_RD, A_RVB_CLR, A_CH, A_CHF, A_CHX, A_CHV1, A_CHV2, A_CHV3, A_CHV4, A_STEP, A_ROM, A_ROMW, A_ROM2, A_DEC,
-        A_RVB_RMW, A_RVB_RD2, A_RVB_WR, A_NEXT, A_OUT
-    } ast_t;
-    ast_t ast;
 
     logic [23:0] ch_pos  [8];
     logic [15:0] ch_pfrac[8];
     logic signed [15:0] ch_val [8], ch_pval [8];
 
     logic  [2:0] ch;
-    wire [15:0] channel_gain = gain_alt ? GAIN_Q14_ALT[ch] : GAIN_Q14[ch];
+    wire [15:0] channel_gain = gain_vio ? GAIN_Q14_VIO[ch] : gain_alt ? GAIN_Q14_ALT[ch] : GAIN_Q14[ch];
     logic [12:0] reverb_pos;
     logic signed [31:0] lval, rval;
     logic [23:0] delta, cur_pos, loop_pos;
@@ -301,19 +378,27 @@ module k054539 #(
     assign rom_addr = strm_req ? strm_addr : rrom_addr;
     wire   rrom_ack = rom_ack && rrom_req && !strm_req;
 
+    // Retain a sample pulse that coincides with an atomic Gaia key-on copy.
+    // Other profiles keep their original cycle-by-cycle sample behavior.
+    logic sample_due;
+    wire sample_start = accurate_gaia ?
+        ((sample_due || cen_48k) && !cp_run && ko_pend == 8'd0 && !(lat_on && key_on)) : cen_48k;
     // PCM16 positions are byte addresses, including odd starts/loop points.
     wire [21:0] fetch_addr = is_dpcm ? cur_pos[22:1] : cur_pos[21:0];
 
     always_ff @(posedge clk) begin
         if (reset) begin
+            sample_due <= 1'b0;
             ast <= A_IDLE; reverb_pos <= '0; rvb_we <= 1'b0; rrom_req <= 1'b0;
             wb_we <= 1'b0; ko_we <= 1'b0;
             snd_l <= '0; snd_r <= '0;
             for (int i = 0; i < 8; i++) begin ch_pos[i] <= '0; ch_pfrac[i] <= '0; ch_val[i] <= '0; ch_pval[i] <= '0; end
         end else begin
             rvb_we <= 1'b0; wb_we <= 1'b0; ko_we <= 1'b0;
+            if (accurate_gaia && cen_48k) sample_due <= 1'b1;
+            if (!accurate_gaia || (ast == A_IDLE && sample_start)) sample_due <= 1'b0;
             case (ast)
-                A_IDLE: if (cen_48k) begin
+                A_IDLE: if (sample_start) begin
                     if (greg[6'h2f][0]) begin rvb_addr <= reverb_pos; ast <= A_RVB_RD; end
                     else begin snd_l <= '0; snd_r <= '0; end
                 end
@@ -426,7 +511,8 @@ module k054539 #(
                 A_RVB_RMW: begin
                     lval <= lval + (($signed(cur_val) * $signed({1'b0, lvol})) >>> 14);
                     rval <= rval + (($signed(cur_val) * $signed({1'b0, rvol})) >>> 14);
-                    rvb_addr <= 13'(rdelta + reverb_pos);
+                    rvb_addr <= 13'(rdelta + {1'b0, reverb_pos} +
+                                    (accurate_gaia ? {1'b0, reverb_pos} : 14'd0));
                     ast <= A_RVB_RD2;
                 end
                 A_RVB_RD2: ast <= A_RVB_WR;                    // rvb_q catches up with rvb_addr

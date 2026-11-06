@@ -20,6 +20,7 @@ a.output.mkdir(parents=True, exist_ok=False)
 for name in names:
     dst=a.output/name;dst.parent.mkdir(parents=True,exist_ok=True)
     shutil.copyfile(ROOT/'pkg/pocket'/name,dst)
+shutil.copyfile(ROOT/'pkg/README.txt',a.output/'README.txt')
 reverse=bytes(int(f'{n:08b}'[::-1],2) for n in range(256))
 (a.output/'Cores/mmmax4.pregx/bitstream.rbf_r').write_bytes(raw.translate(reverse))
 print(a.output)

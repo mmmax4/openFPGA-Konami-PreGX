@@ -26,7 +26,8 @@ module tb_m2_rgb_table13 (
     output wire [23:0] old_scan_rgb
 );
     pregx_rgb_line candidate (
-        .fragment_brightness(8'hff),
+        .stream_ready(),
+        .violent(1'b0), .fragment_brightness(8'hff),
         .clk(clk),.reset(reset),.line_start(line_start),.backdrop(backdrop),
         .shadow_delta(shadow_delta),.noclip(noclip),.busy(busy),
         .fragment_valid(fragment_valid),.fragment_ready(fragment_ready),

@@ -8,7 +8,7 @@ module tb_sound_pause(
  output wire [15:0] snd_l,snd_r
 );
  wire lat_wr;wire [1:0] lat_off;wire [7:0] lat_wdata,lat_rdata;
- gaia_sound dut(.mystic(1'b0),.clk(clk),.reset(reset),.cen_8m(cen_8m),.cen_48k(cen_48k),
+ gaia_sound dut(.violent(1'b0), .mystic(1'b0),.clk(clk),.reset(reset),.cen_8m(cen_8m),.cen_48k(cen_48k),
   .rom_req(rom_req),.rom_addr(rom_addr),.rom_ack(rom_ack),.rom_q(rom_q),
   .pcm_req(pcm_req),.pcm_addr(pcm_addr),.pcm_ack(pcm_ack),.pcm_q(pcm_q),
   .lat_wr(lat_wr),.lat_off(lat_off),.lat_wdata(lat_wdata),.lat_rdata(lat_rdata),

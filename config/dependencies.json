@@ -68,5 +68,12 @@
     "url": "https://raw.githubusercontent.com/mamedev/mame/76af2d6d907f0df822dca1d5146454cc5ee18294/src/emu/romload.cpp",
     "sha256": "854873d6f1b33d1dd3614a219b4b744f8fefb11708c8389141157825599f275f",
     "terms": "Retain original per-file MAME notices."
+  },
+  {
+    "path": "ref/mame0289/mystwarr.cpp",
+    "group": "reference",
+    "url": "https://raw.githubusercontent.com/mamedev/mame/f34f02505e32c1993c6a782b6814232cbfc74e36/src/mame/konami/mystwarr.cpp",
+    "sha256": "f6c1ba57e7522803c48b3437e51744ecae3183d4be725d7a7b93c20e2d49199a",
+    "terms": "MAME0.289 reference for Violent Storm original image builder; original BSD-3-Clause notices apply."
   }
 ]

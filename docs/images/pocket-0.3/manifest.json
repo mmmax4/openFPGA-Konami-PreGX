@@ -1,0 +1,149 @@
+{
+  "source": "Analogue Pocket captures2026-11-06",
+  "method": "Only IHDR/IDAT/IEND, verified CRC, lossless identical scanlines; no crop/resize/color changes.",
+  "images": [
+    {
+      "file": "docs/images/pocket-0.3/mystic-warriors-portraits.png",
+      "set": "mystwarr",
+      "scene": "Portrait sequence",
+      "original_sha256": "f66719ebae5d13ef1adb1e324371d621eb88a8a8b19db459b3061f877ec78727",
+      "export_sha256": "1e9a9c31f82871b6153d58efd467f627e7225e6d573e6e753e733abe87052cc6",
+      "width": 288,
+      "height": 224,
+      "scanlines_sha256": "4c93dfc02527da6955da9d57679c80164f914708c619203036a32a5fafd5a16c",
+      "original_scanlines_preserved": true
+    },
+    {
+      "file": "docs/images/pocket-0.3/mystic-warriors-truck.png",
+      "set": "mystwarr",
+      "scene": "Intro truck scene",
+      "original_sha256": "3377d707ca15926f9a0cfc81249b14d3dded923abcf941deae6f039348bb10f7",
+      "export_sha256": "88d6407b6e7060ef9ec937ad3541604007d3777fb0b7682f06e090091e280822",
+      "width": 288,
+      "height": 224,
+      "scanlines_sha256": "1b2827aac7e0aa1969568fe3e37f0d74407f478904acb5e22726a6aef681e3b9",
+      "original_scanlines_preserved": true
+    },
+    {
+      "file": "docs/images/pocket-0.3/violent-storm-demo-wade.png",
+      "set": "viostorm",
+      "scene": "Final attract/demo scene; ordinary scene-transition fade",
+      "original_sha256": "4c2b1f853e916b1bfedc443aa7658f73ac89944132d0e0fbd0dde4a4483f68d4",
+      "export_sha256": "ef93f02d61fdcf4784d44f30232205f2767ed41669cce54566ec8a63753cf38a",
+      "width": 384,
+      "height": 224,
+      "scanlines_sha256": "01c869e592b9d47d6b2eadaf964dd84d8c51d510ec4eae96d8579c71e9eda738",
+      "original_scanlines_preserved": true
+    },
+    {
+      "file": "docs/images/pocket-0.3/violent-storm-station.png",
+      "set": "viostorm",
+      "scene": "Wade at the station",
+      "original_sha256": "b9492d83cc230b3913539922687d194be6731aad2f7304f3447080ce2787f481",
+      "export_sha256": "1dbd74fde7ea483af495b6fddb6182b04082e24a58a0d983175e95c094103f63",
+      "width": 384,
+      "height": 224,
+      "scanlines_sha256": "7813a9f598085df45e676c7ed531095667e65dcae9a3f02e338441f119492bb6",
+      "original_scanlines_preserved": true
+    },
+    {
+      "file": "docs/images/pocket-0.3/violent-storm-dabel.png",
+      "set": "viostorm",
+      "scene": "Wade and Dabel",
+      "original_sha256": "8df56cbc4b85813f348fed414a0b53368cd276aae0e1bb2c07ff2995911b8004",
+      "export_sha256": "1dbe3a90449fa0833e2ec50a6af2645b8e3ac9483a2bc75ba26b8e70977a1e80",
+      "width": 384,
+      "height": 224,
+      "scanlines_sha256": "71777d8d4fcef9ef8de604c541d1cb7c5548f05e4c0d99c2fc33471ab8876c27",
+      "original_scanlines_preserved": true
+    },
+    {
+      "file": "docs/images/pocket-0.3/violent-storm-map.png",
+      "set": "viostorm",
+      "scene": "Stage-clear map",
+      "original_sha256": "d669e2335f4ef73940987d7813923bb5a8f2d9d29aaf6145f26b7bdce39f46a5",
+      "export_sha256": "458d14e15c86ba50057b228dd976c7bba494078170b2d0c7789d48937b2ff4e6",
+      "width": 384,
+      "height": 224,
+      "scanlines_sha256": "584866a028c94f0a85072db4ec992405f53c6471f5ef4504c5fab2c424dce114",
+      "original_scanlines_preserved": true
+    },
+    {
+      "file": "docs/images/pocket-0.3/violent-storm-liza.png",
+      "set": "viostorm",
+      "scene": "Second-stage Liza encounter",
+      "original_sha256": "22a4b4363cc5ff7702718c58cddcb89ae033bb0a2df877ec2b95fa4eb88a6ea2",
+      "export_sha256": "b600e357a9aa13ef83c6088f905c3408e6ecc5b1012e220fc91bd423aa9e4437",
+      "width": 384,
+      "height": 224,
+      "scanlines_sha256": "7818a491ce69f21e3acafd2bee4cb76de23c53dd520883631581e06bea9357f4",
+      "original_scanlines_preserved": true
+    },
+    {
+      "file": "docs/images/pocket-0.3/violent-storm-stage2.png",
+      "set": "viostorm",
+      "scene": "Second-stage sprite action",
+      "original_sha256": "cc34a6fde41ce48cf5a76e9d390b838bac1c71e2b4dad85cd2d8d7116b3e4d89",
+      "export_sha256": "20861e04b97224b28e7dd877573266367b424eff0f9708708c8ce50cf77cc42b",
+      "width": 384,
+      "height": 224,
+      "scanlines_sha256": "a8ff5a4f352ae964bd1982a8eaf15e6ee3fa74cd9593b014e10df6fa39956509",
+      "original_scanlines_preserved": true
+    },
+    {
+      "file": "docs/images/pocket-0.3/violent-storm-eve.png",
+      "set": "viostorm",
+      "scene": "Eve encounter",
+      "original_sha256": "21179765ffc585848104c78caed189c9d9f311a20d63eb06f24388a53e341a59",
+      "export_sha256": "6cf12faf92f297874682f4d32b0e6b1febd820cd5bfd89286ee4a10ec9949eac",
+      "width": 384,
+      "height": 224,
+      "scanlines_sha256": "249eead7fcd76291b66574a1c2cf7394f52e418dbb6e444666a34e9694d0e38d",
+      "original_scanlines_preserved": true
+    },
+    {
+      "file": "docs/images/pocket-0.3/violent-storm-kyle-clear.png",
+      "set": "viostorm",
+      "scene": "Kyle stage clear",
+      "original_sha256": "3d959e535c24454b68f8515dbd980f79f89739cb4b8932f08b00dae4970cd77a",
+      "export_sha256": "763acb70852f04ec5376692711be1e6e2a35aa155cca2b9fb4f5be009b5a5b96",
+      "width": 384,
+      "height": 224,
+      "scanlines_sha256": "68f2a9fb230476e7b24181c65d8c6bd844bf940c8b04831b825e3af4009f9e6c",
+      "original_scanlines_preserved": true
+    },
+    {
+      "file": "docs/images/pocket-0.3/violent-storm-stage-clear.png",
+      "set": "viostorm",
+      "scene": "Stage-clear city map",
+      "original_sha256": "c70d6caa1e673a3c44d778f681fba1638f3c777057bf81c8c855faa05cbdb6c4",
+      "export_sha256": "eb0ba8a35180120e106238372cccfe48f8078d32d59488196ceeed5c6efc3729",
+      "width": 384,
+      "height": 224,
+      "scanlines_sha256": "3786a5725e480f99b07265eff7c7a8a482ac64b3538bd063d177ab6b94d1a1d0",
+      "original_scanlines_preserved": true
+    },
+    {
+      "file": "docs/images/pocket-0.3/gaiapolis-intro.png",
+      "set": "gaiapols",
+      "scene": "Vertical intro",
+      "original_sha256": "9b31222f92495985254004fb1d4118fc8022775b4809632bc35181206559cbb0",
+      "export_sha256": "36fcc3c89da1411dc543a3e5126f42c14a1c1848b406dcfaff15c8a7a8f5c08e",
+      "width": 224,
+      "height": 376,
+      "scanlines_sha256": "3f17e89b7e20f57e7c56c2812bb1e3f29c4ab38ae3e5d0c111aa550b3ac8bbbc",
+      "original_scanlines_preserved": true
+    },
+    {
+      "file": "docs/images/pocket-0.3/gaiapolis-gameplay.png",
+      "set": "gaiapols",
+      "scene": "Vertical gameplay after boss",
+      "original_sha256": "4b8b8e73e71dbd1c05f343f4c5b0018c261b2b4d57e490aeeecfe10305d34f73",
+      "export_sha256": "525e7d0379b46bbe0999a30ab622d21c5a39ed11ca9c453dca5d59d3b18a54f9",
+      "width": 224,
+      "height": 376,
+      "scanlines_sha256": "88578a5d12e1e7218b6207f92ccf30e9796951cf24111ed491063aedabec1702",
+      "original_scanlines_preserved": true
+    }
+  ]
+}

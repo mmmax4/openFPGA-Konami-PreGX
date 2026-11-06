@@ -76,7 +76,7 @@ module tb_tilemap_top (
     assign pix3 = pix[3];
 
     k056832_tilemap u_tm (
-        .mystic(1'b0), .rom_fifth(8'd0), .category(), .line_nonempty(),
+        .violent(1'b0), .mystic(1'b0), .rom_fifth(8'd0), .category(), .line_nonempty(),
         .clk(clk), .reset(reset),
         .line_start(line_start), .line(line), .busy(busy),
         .regs(regs), .colorbase(colorbase),

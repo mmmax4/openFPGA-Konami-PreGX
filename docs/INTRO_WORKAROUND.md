@@ -1,7 +1,7 @@
 # Mystic Warriors intro-name compatibility
 
 Before 0.2.1, the five ninja name labels could remain red over the scene following
-the portraits. The user compared this with Switch Arcade Archives, where they
+the portraits. This was compared with Switch Arcade Archives, where they
 disappear. MAME reproduces the residue and was not used as a golden image for
 the desired absence. Switch footage is a software comparison, not a PCB trace.
 
@@ -43,9 +43,9 @@ removed. Original private captures remain unchanged.
   <img src="images/mystic-intro-caption-after.png" width="288" alt="After: the ordinary We'll stop ninja action caption remains visible">
 </p>
 
-The ordinary grey caption remains visible. The user confirms that names now
+The ordinary grey caption remains visible. Pocket testing confirms that names now
 disappear and both games continue to run well. The still images illustrate the
-post-portrait scenes; the transition itself is confirmed by user observation.
+post-portrait scenes; the transition itself is confirmed by physical observation.
 
 ## Validation and limits
 
@@ -60,5 +60,5 @@ post-portrait scenes; the transition itself is confirmed by user observation.
 - New full fit, all timing corners nonnegative; fitted SDRAM, constraints,
   clock-enable and package reviews completed before the physical test.
 - Physical Pocket test: disappearance and continued normal operation of both
-  games reported by the user. No new complete playthrough or Analogizer test
+  games in reported Pocket tests. No new complete playthrough or Analogizer test
   is inferred. See [validation scope](VALIDATION.md).
