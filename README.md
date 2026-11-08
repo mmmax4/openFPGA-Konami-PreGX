@@ -1,6 +1,6 @@
 # Konami pre-GX — Analogue Pocket openFPGA
 
-<p align="center"><img src="docs/images/banner.png" alt="Konami pre-GX: Gaiapolis, Mystic Warriors, Violent Storm and Metamorphic Force"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/mmmax4/openFPGA-Konami-PreGX/v0.4.0/docs/images/banner.png" alt="Konami pre-GX: Gaiapolis, Mystic Warriors, Violent Storm and Metamorphic Force"></p>
 
 A multi-game Konami arcade core for **Analogue Pocket**, by **mmmax4**, based on
 [plasticbugs / Scott's Gaiapolis core](https://github.com/plasticbugs/analogue-pocket-gaiapolis).
