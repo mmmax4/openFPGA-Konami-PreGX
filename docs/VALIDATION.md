@@ -1,4 +1,4 @@
-# Release 0.3 validation
+# Release0.3.0 validation
 
 ## Physical Pocket observations
 
@@ -48,3 +48,6 @@ Analogizer CRT/SNAC, all multiplayer combinations and high-score persistence
 remain separately unqualified. EEPROM settings persistence and high-score
 persistence are separate features. No ROM/program/graphics/EEPROM patch was
 used. Historical failing evidence and qualified fit data remain archived.
+
+Version identifiers were normalized from0.3 to0.3.0 on8November2026. The raw
+and Pocket bitstreams remain unchanged; no new fit or physical test is inferred.

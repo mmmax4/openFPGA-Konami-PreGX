@@ -5,7 +5,7 @@
 A multi-game Konami arcade core for **Analogue Pocket**, by **mmmax4**, based on
 [plasticbugs / Scott's Gaiapolis core](https://github.com/plasticbugs/analogue-pocket-gaiapolis).
 
-**Release [0.3](https://github.com/mmmax4/openFPGA-Konami-PreGX/releases/tag/v0.3)**
+**Release [0.3.0](https://github.com/mmmax4/openFPGA-Konami-PreGX/releases/tag/v0.3.0)**
 adds **Violent Storm**, incorporates Gaiapolis 0.3.2 graphics/audio improvements,
 and preserves Mystic Warriors' confirmed intro-name workaround from 0.2.1.
 The missing sprite rows seen in earlier Violent Storm builds are confirmed
@@ -38,15 +38,15 @@ revisions and clones are not automatically supported.
 
 ## Install
 
-Download **mmmax4.pregx-v0.3.zip** from the
-[release page](https://github.com/mmmax4/openFPGA-Konami-PreGX/releases/tag/v0.3).
+Download **mmmax4.pregx-v0.3.0.zip** from the
+[release page](https://github.com/mmmax4/openFPGA-Konami-PreGX/releases/tag/v0.3.0).
 Copy **Cores/**, **Platforms/**, **Assets/** and **Presets/** to the SD root,
 merging their contents. **Presets is required** for the correct per-game menu
 labels. Keep existing original ROMs and saves. Open **Arcade Multi → Konami pre-GX**.
 
 The SD package contains only those four runtime trees and one README.txt.
 ROM builders, source and development documents stay in the repository and the
-separate **mmmax4.pregx-v0.3-source.zip** download. See
+separate **mmmax4.pregx-v0.3.0-source.zip** download. See
 [original ROM setup](docs/ROM_SETUP.md); no ROM, factory EEPROM or save is supplied.
 
 ## Features and validation

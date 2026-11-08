@@ -1,4 +1,4 @@
-Konami pre-GX — release 0.3 — mmmax4
+Konami pre-GX — release 0.3.0 — mmmax4
 
 Playable and tested on Analogue Pocket: Gaiapolis (ver EAF), Mystic Warriors
 (ver EAA), Violent Storm (ver EAC). Other profiles remain planned.
@@ -16,11 +16,11 @@ is included. Build images using the matching source tools; copy gaiapols.rom,
 mystwarr.rom and viostorm.rom to Assets/pregx/mmmax4.pregx/ on the SD.
 Keep independent gaiapols.sav, mystwarr.sav and viostorm.sav under
 Saves/pregx/mmmax4.pregx/. This package does not install or replace saves.
-ROM setup: https://github.com/mmmax4/openFPGA-Konami-PreGX/blob/v0.3/docs/ROM_SETUP.md
+ROM setup: https://github.com/mmmax4/openFPGA-Konami-PreGX/blob/v0.3.0/docs/ROM_SETUP.md
 
 CORRESPONDING SOURCE AND TOOLS (separate download, not needed on the SD)
-https://github.com/mmmax4/openFPGA-Konami-PreGX/releases/tag/v0.3
-Download mmmax4.pregx-v0.3-source.zip alongside this binary archive.
+https://github.com/mmmax4/openFPGA-Konami-PreGX/releases/tag/v0.3.0
+Download mmmax4.pregx-v0.3.0-source.zip alongside this binary archive.
 The source preserves the preferred TG68K.C VHDL, generated source, conversion
 recipe, build scripts, pinned dependencies, notices and functional tests.
 Checksums for both archives are provided as SHA256SUMS on that release page.

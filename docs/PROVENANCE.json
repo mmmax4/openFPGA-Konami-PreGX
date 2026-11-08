@@ -190,12 +190,18 @@
     "target/pocket/gaia_mem.sv"
   ],
   "release": {
-    "version": "0.3",
-    "tag": "v0.3",
-    "url": "https://github.com/mmmax4/openFPGA-Konami-PreGX/releases/tag/v0.3",
+    "version": "0.3.0",
+    "tag": "v0.3.0",
+    "url": "https://github.com/mmmax4/openFPGA-Konami-PreGX/releases/tag/v0.3.0",
     "raw_rbf_sha256": "4deaaff48b60f21c2bcc741595d199997bea52cc639c4410eabd7e289e9996d1",
     "pocket_rbf_sha256": "cf040d29a83c32483abedc74e348178f83d455d36888835bdbe87703b25fa059",
-    "same_hardware_as_Pocket_tested_vio03": true
+    "same_hardware_as_Pocket_tested_vio03": true,
+    "normalization": {
+      "date": "2026-11-08",
+      "from": "0.3 / v0.3",
+      "scope": "Version metadata, tag, runtime/source filenames and matching links only. Same fit15 gateware and original Pocket qualification; no recompile.",
+      "historical_reference_preserved": "v0.3"
+    }
   },
   "pocket_validation": {
     "date": "2026-11-06",

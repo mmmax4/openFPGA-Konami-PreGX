@@ -1,6 +1,9 @@
 # Changelog
 
-## 0.3 — 2026-11-06
+## 0.3.0 — 2026-11-06
+
+Version naming normalized on2026-11-08: tag, metadata and runtime/source ZIP
+names use0.3.0 for updater compatibility. Hardware is unchanged from0.3.
 
 - Adds Violent Storm (ver EAC), confirmed working on Pocket, with original-data
   ROM builder, independent save/settings and matching menu preset.
