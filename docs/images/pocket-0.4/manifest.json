@@ -1,0 +1,90 @@
+{
+  "source": "Analogue Pocket captures 2026-11-08",
+  "method": "Verified PNG CRCs; IHDR and decompressed filtered scanlines preserved; lossless recompression and removal of data after IEND. No resize/crop/retouch.",
+  "images": [
+    {
+      "file": "docs/images/pocket-0.4/metamorphic-force-ruins.png",
+      "set": "metamrph",
+      "kind": "gameplay",
+      "scene": "Combat in outdoor ruins",
+      "width": 288,
+      "height": 224,
+      "original_sha256": "a4f30cbaf1bbe14f29979f835d1a3b67bd13924f253c896014309eb5febd75a9",
+      "export_sha256": "4ee5b8bbbfcf07c5f4d5361fcb790856747b4c6a493176b386b6260aef7f0977",
+      "scanlines_sha256": "ddd52beac70844e8fb762c738f3179b3a4153417ab0cac2c0f0837ee659fa392",
+      "original_scanlines_preserved": true
+    },
+    {
+      "file": "docs/images/pocket-0.4/metamorphic-force-intro.png",
+      "set": "metamrph",
+      "kind": "intro",
+      "scene": "Animal portrait intro",
+      "width": 288,
+      "height": 224,
+      "original_sha256": "1c12c25c806773ff0b7a2689bc38f176035ae2d8c5b5b1cc979a0ed5864869e1",
+      "export_sha256": "1c7c3f3dcc43c86e18e5d34b03246bff3886535090ffbd300b9402b34ddec0bd",
+      "scanlines_sha256": "4c225104527a27c09e754b4471f32fe1d5d735087150458a7c01e0ae1f97c37b",
+      "original_scanlines_preserved": true
+    },
+    {
+      "file": "docs/images/pocket-0.4/metamorphic-force-title.png",
+      "set": "metamrph",
+      "kind": "title",
+      "scene": "Title screen",
+      "width": 288,
+      "height": 224,
+      "original_sha256": "8ff8629f0bda1c680ee246d0959bed2ed1be46069a674853ebdafb13bea27de7",
+      "export_sha256": "ef671b604d7705225c33ca952dd11ae8dced0634b9867a8d741cd726bcac6607",
+      "scanlines_sha256": "853a02b9f458c76f63220a84dc9923cc79fd87568c506d85d67d31f5b2795443",
+      "original_scanlines_preserved": true
+    },
+    {
+      "file": "docs/images/pocket-0.4/metamorphic-force-temple.png",
+      "set": "metamrph",
+      "kind": "gameplay",
+      "scene": "Temple combat",
+      "width": 288,
+      "height": 224,
+      "original_sha256": "47ade42672fafc09bf2b1c363e776263537dcb968dbf0577ee91ec7966d0a0fd",
+      "export_sha256": "4ed7968118fd09c6041775f596dea138ff5703285eabd2c1ca58afcd4ebfb48d",
+      "scanlines_sha256": "821074487cf5f091a6c6ccca4e98a35e831db52e3a147bb2e3c0a4d41d075013",
+      "original_scanlines_preserved": true
+    },
+    {
+      "file": "docs/images/pocket-0.4/metamorphic-force-effect.png",
+      "set": "metamrph",
+      "kind": "gameplay",
+      "scene": "Temple combat with multicolour screen effect; no defect reported",
+      "width": 288,
+      "height": 224,
+      "original_sha256": "446c3f659ee3508856b3b23e0d840fb72338009025231de0f2a6d061c9e65ba2",
+      "export_sha256": "2ba65cc7b05639cd7b4f267a99bb897419a8c77390ff416b6e75ff714312288a",
+      "scanlines_sha256": "a387e02f81a9b124ca61433f57921e7210aff2cdd4ef41edb7d13090a10e244c",
+      "original_scanlines_preserved": true
+    },
+    {
+      "file": "docs/images/pocket-0.4/metamorphic-force-clear.png",
+      "set": "metamrph",
+      "kind": "gameplay_clear",
+      "scene": "YOU HAVE DONE IT message over temple scene",
+      "width": 288,
+      "height": 224,
+      "original_sha256": "4080868c498f18cb5b23b5ecb739a0d4346ea7c7c6f63c438871db06d391a62b",
+      "export_sha256": "673a89ab4da94330cfa53fb8db89d65524753b6da1cce7bcb91afea845e69f62",
+      "scanlines_sha256": "c41df44591541776a5fa2fe1c05946904ccdc84607eb359fa3b6f5f1c19c3bca",
+      "original_scanlines_preserved": true
+    },
+    {
+      "file": "docs/images/pocket-0.4/gaiapolis-character-intro.png",
+      "set": "gaiapols",
+      "kind": "intro",
+      "scene": "Vertical Elain Shee character introduction",
+      "width": 224,
+      "height": 376,
+      "original_sha256": "fd3b3d0ca6855f6d24ddd65a8a3f65d555d29f8cd0ad08a871c79726ca3a8162",
+      "export_sha256": "cac4908a5566f602cc33da024b2f0a3bb9ca38e4645b1ff9223a562ad4ac8bdb",
+      "scanlines_sha256": "d49a52848f828b4c79b9cc0301c3413f5901a87b328a4c559aa7c5063b3043e4",
+      "original_scanlines_preserved": true
+    }
+  ]
+}

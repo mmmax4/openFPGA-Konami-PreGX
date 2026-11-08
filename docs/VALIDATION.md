@@ -1,50 +1,41 @@
-# Release 0.3 validation
+# Release0.4.0 validation
 
-## Physical Pocket observations
+Metamorphic Force EAA is confirmed working on Analogue Pocket on8November2026.
+The original captures show title, intro, combat in ruins and a temple, a colour
+effect and a YOU'VE DONE IT! message. No bug was reported. This is observed
+scene/gameplay coverage, not a new complete-playthrough, all-multiplayer or
+save/reset qualification. A vertical Gaiapolis character intro was also captured.
+The earlier three-game [Pocket qualification](VALIDATION_0.3.md) remains historical;
+the general current-core confirmation does not supply new per-game Mystic/Vio scenes.
 
-The tested private candidate and release 0.3 have the same gateware bytes.
-Pocket testing reported on 6 November 2026 confirms Gaiapolis, Mystic Warriors
-and Violent Storm working. Violent Storm's previously missing sprite rows are
-confirmed absent in gameplay and the final attract/demo scene, with second-stage
-captures included. The demo capture contains an ordinary transition fade;
-that fade is not a reported defect. Mystic's 0.2.1 intro-name workaround remains
-enabled. No new full playthrough of these exact bytes is claimed.
+Gateware is byte-identical to the tested m4p01 candidate. Source commit
+`6c40292c70740833dd1e39455143e515b05a4d5a`:162 compiled inputs plus generated MIF;
+three unchanged external Analogizer dependencies fetched by immutable SHA256.
+All four timing corners and160 records pass: minimum setup0.004ns, hold0.116ns,
+recovery0.895ns, removal2.039ns and pulse0.520ns. Setup margin is very small.
+18021/18480ALM,1844/1848LAB,308/308M10K. No ignored SDC or Critical Warning.
+98 fitted adapter FFs stay outside DSP inputs; sound selectors use standard-cycle
+constraints. No clock or CPU timing exception was copied to new M4 logic.
 
-[Thirteen lossless Pocket captures](POCKET_0.3.md) illustrate the observed scope.
-Release-version, documentation and creator-icon changes do not change hardware.
-The new creator Info icon has software format/rotation checks; its appearance
-still awaits physical observation.
+64 fresh fitted-envelope SDRAM model executions pass with5248 original-word
+observations, actual AS4C32M16MSA-6BIN CL3/10410ps, startup/MR/EMR/tAC/tOH/tHZ/X/Z
+and clock checks. This qualifies the read-capture model scope, not a physical
+memory aperture measurement. Native runs: lead; independent SDRAM/actual private
+archive review: research_metam. Earlier source/component reviews retain their
+actual authors. Publication byte/notice checks are separate lead checks.
 
-## Reused source-bound engineering qualification
-
-Hardware snapshot `66a0af551a06eacbfd8bd45c5ff3f20aaf177f03` (fit15):
-158 compiled source/constraint/IP inputs plus the generated build-ID MIF.
-The curated source reproduces all hashes; three inherited dependencies are
-fetched by immutable URL and hash. See PROVENANCE.json and BUILD.md.
-
-All 29 candidate gates passed before Pocket testing. Reviewers were
-`verify_mmio` (fit/source/physical SDRAM model) and `verify_profiles` (scripts
-and actual candidate archives); native runs and release byte checks were
-performed by the lead. Release packaging is checked separately; it does not
-claim a new independent RTL review or another compilation.
-
-All four reported timing corners passed. Minimum reported slack in ns:
-setup **0.119**, hold **0.107**, recovery **0.906**, removal **2.150**, minimum
-pulse **0.520**. The 64 fitted-clock SDRAM cases passed, covering 128 DQ checks;
-16 nominal-model diagnostic negatives remain preserved as negatives.
-This does not replace the physical Pocket observation or remove documented
-clock/model limits. Sprite row/cache response, clip/zoom/line alignment,
-contention/deadlines, MMIO controls, reset/game selection and audio received
-risk-directed tests using original data. Historical fixtures retain their pins.
-
-Raw RBF SHA256:
-`4deaaff48b60f21c2bcc741595d199997bea52cc639c4410eabd7e289e9996d1`.
-Pocket bit-reversed RBF SHA256:
-`cf040d29a83c32483abedc74e348178f83d455d36888835bdbe87703b25fa059`.
-
-## Limits
+Scoped source-bound evidence is reused for original loader/MMIO/IRQ, shared RAM,
+PSRAM road state/commit, pixels/priority/zoom/deadlines, original audio traces,
+EEPROM/reset/unload and unchanged games. Changed timing-repair risks received
+selected fresh component checks. Four original PNG consumer comparisons cover
+258048 pixels; current audio checks cover25952 stereo comparisons/54.5M clocks.
+Historical raw-getter negatives and conditional road-shadow1/2 limits remain
+recorded. A200M-clock startup simulation stayed in self-test/blank; no complete
+native original-program pass is claimed. Actual Pocket confirmation is distinct.
 
 Analogizer CRT/SNAC, all multiplayer combinations and high-score persistence
-remain separately unqualified. EEPROM settings persistence and high-score
-persistence are separate features. No ROM/program/graphics/EEPROM patch was
-used. Historical failing evidence and qualified fit data remain archived.
+remain separately unqualified. No program/ROM/graphics/EEPROM patches are used.
+Raw RBF: `d070e465f893c315263b0b686d4e9c7f71242470ac45e40708a57eef09fccf58`.
+Pocket RBF: `6f4616f68726b71b4c2afbba121b1166c9990eafceb500e6c4dd45146bbabe16`.
+Release metadata and four-game banner do not require a new fit. The newly
+restored banner's physical appearance is not separately observed.

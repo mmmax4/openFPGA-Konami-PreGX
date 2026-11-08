@@ -20,7 +20,7 @@
       ],
       "rotation": 90,
       "status": "playable_Pocket_tested",
-      "validation_scope": "Confirmed on Analogue Pocket with the release0.3 hardware; gameplay and scene coverage documented separately, no complete-playthrough claim."
+      "validation_scope": "Historical Pocket qualification retained from release0.3. Current core received general confirmation; a Gaiapolis character-intro capture is available, no new per-game Mystic/Violent scene coverage inferred."
     },
     {
       "id": 1,
@@ -39,7 +39,7 @@
       ],
       "rotation": 0,
       "status": "playable_Pocket_tested",
-      "validation_scope": "Confirmed on Analogue Pocket with the release0.3 hardware; gameplay and scene coverage documented separately, no complete-playthrough claim.",
+      "validation_scope": "Historical Pocket qualification retained from release0.3. Current core received general confirmation; a Gaiapolis character-intro capture is available, no new per-game Mystic/Violent scene coverage inferred.",
       "intro_names_workaround": "Scene-specific workaround preserved from0.2.1; enabled."
     },
     {
@@ -59,7 +59,7 @@
       ],
       "rotation": 0,
       "status": "playable_Pocket_tested",
-      "validation_scope": "Confirmed on Analogue Pocket with the release0.3 hardware; gameplay and scene coverage documented separately, no complete-playthrough claim."
+      "validation_scope": "Historical Pocket qualification retained from release0.3. Current core received general confirmation; a Gaiapolis character-intro capture is available, no new per-game Mystic/Violent scene coverage inferred."
     },
     {
       "id": 3,
@@ -67,7 +67,7 @@
       "title": "Metamorphic Force (ver EAA)",
       "save_filename": "metamrph.sav",
       "rom_verified": true,
-      "implementation": "pending",
+      "implementation": "shared_core_playable",
       "visible_raster": [
         288,
         224
@@ -77,7 +77,11 @@
         15
       ],
       "rotation": 0,
-      "status": "planned"
+      "status": "playable_Pocket_tested",
+      "pocket_qualified": true,
+      "mame_tag": "mame0289",
+      "mame_commit": "f34f02505e32c1993c6a782b6814232cbfc74e36",
+      "validation_scope": "Confirmed on Analogue Pocket on 2026-11-08; captures show title, multiple combat scenes and clear message. No full-playthrough or all-multiplayer claim."
     },
     {
       "id": 4,
@@ -116,9 +120,15 @@
       "status": "planned"
     }
   ],
-  "note": "Catalog of verified ROM sets; pending profiles are not offered in Pocket selection.",
+  "note": "Four playable profiles. Martial Champion and Monster Maulers remain hidden planned profiles. Physical scopes are per game and artifact.",
   "mame_reference_pins": {
     "mystwarr": "76af2d6d907f0df822dca1d5146454cc5ee18294",
     "viostorm": "f34f02505e32c1993c6a782b6814232cbfc74e36"
+  },
+  "public_release": {
+    "version": "0.4.0",
+    "tag": "v0.4.0",
+    "url": "https://github.com/mmmax4/openFPGA-Konami-PreGX/releases/tag/v0.4.0",
+    "hardware_commit": "6c40292c70740833dd1e39455143e515b05a4d5a"
   }
 }

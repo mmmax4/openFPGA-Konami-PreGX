@@ -34,6 +34,12 @@ module gaia_mem #(
     input  logic        clk,            // 96 MHz
     input  logic        clk_sdram,      // 96 MHz, phase-shifted, drives the SDRAM clock pin
     input  logic        violent,
+    input logic metam,
+    input logic lvc_req,input logic[14:0]lvc_addr,
+    output logic lvc_ack,output wire[63:0]lvc_q,
+    input logic road_req,road_we,input logic[13:0]road_addr,
+    input logic[1:0]road_be,input logic[15:0]road_wdata,
+    output wire road_ack,output wire[15:0]road_q,
     input  logic        mystic,         // profile stable from init through download/run
     input  logic        init,           // hardware reset: re-initialise the SDRAM
     output logic        ready,
@@ -101,10 +107,17 @@ module gaia_mem #(
     localparam [24:0] M_SND = 25'h0200000, M_TILE = 25'h0240000,
         M_PCM = 25'h04C0000, M_SPR = 25'h08C0000, M_EEP = 25'h0DC0000;
     localparam [24:1] SD_M_PCM = 24'h140000, SD_M_SPR = 24'h340000;
-    wire [24:0] image_snd = (mystic || violent) ? M_SND : IMG_SND;
-    wire [24:0] image_tile = (mystic || violent) ? M_TILE : IMG_TILE;
-    wire [24:0] image_end = violent ? 25'h1240080 : mystic ? (M_EEP + 25'h80) : IMG_END;
-    assign test_mask = (mystic || violent) ? 7'h67 : 7'h7f;
+    (* preserve, dont_merge *) logic [24:0] image_snd, image_tile, image_end;
+    (* preserve, dont_merge *) logic load_mystic,load_road,load_metam;
+    // Profile identification finishes in the prefix, long before the first
+    // profile-dependent boundary. Capture static bounds outside loader decode.
+    always_ff @(posedge clk) begin
+        image_snd <= (mystic || violent || metam) ? M_SND : IMG_SND;
+        image_tile <= (mystic || violent || metam) ? M_TILE : IMG_TILE;
+        image_end <= metam ? 25'h1280080 : violent ? 25'h1240080 : mystic ? (M_EEP+25'h80) : IMG_END;
+        load_mystic<=mystic;load_road<=violent || metam;load_metam<=metam;
+    end
+    assign test_mask = metam ? 7'h6f : (mystic || violent) ? 7'h67 : 7'h7f;
     // PSRAM word addresses
     localparam [22:0] PS_CHR = 23'h000000, PS_MAP = 23'h0C0000, PS_PROG = 23'h000000, PS_SND = 23'h180000;
 
@@ -179,13 +192,14 @@ module gaia_mem #(
                         ps_wr_addr <= PS_PROG + 23'(wa); ps1_wr_req <= 1'b1; wst <= W_PS1;
                     end else if (wa < image_tile[24:1]) begin       // Z80 program -> CRAM1
                         ps_wr_addr <= PS_SND + 23'(wa - image_snd[24:1]); ps1_wr_req <= 1'b1; wst <= W_PS1;
-                    end else if (violent) begin
+                    end else if (load_road) begin
                         if(wa < 24'h320000) begin sd_wr_addr<=wa-M_TILE[24:1];sd_wr_req<=1'b1;wst<=W_SDRAM;end
                         else if(wa < 24'h520000) begin sd_wr_addr<=24'h200000+(wa-24'h320000);sd_wr_req<=1'b1;wst<=W_SDRAM;end
                         else if(wa < 24'h920000) begin sd_wr_addr<=24'h400000+(wa-24'h520000);sd_wr_req<=1'b1;wst<=W_SDRAM;end
+                        else if(load_metam && wa<24'h940000) begin sd_wr_addr<=24'h800000+(wa-24'h920000);sd_wr_req<=1'b1;wst<=W_SDRAM;end
                         else if(wa < image_end[24:1]) begin eep_we<=wbe[1];eep_addr<={wa[6:1],1'b0};eep_data<=wd[15:8];wst<=W_EEP;end
-                        else wf_rp<=wf_rp+7'd1;
-                    end else if (mystic) begin
+                        else begin wf_rp<=wf_rp+7'd1;wst<=W_IDLE;end
+                    end else if (load_mystic) begin
                         if (wa < M_PCM[24:1]) begin
                             sd_wr_addr <= SD_TILE + (wa - M_TILE[24:1]); sd_wr_req <= 1'b1; wst <= W_SDRAM;
                         end else if (wa < M_SPR[24:1]) begin
@@ -194,7 +208,7 @@ module gaia_mem #(
                             sd_wr_addr <= SD_M_SPR + (wa - M_SPR[24:1]); sd_wr_req <= 1'b1; wst <= W_SDRAM;
                         end else if (wa < image_end[24:1]) begin
                             eep_we <= wbe[1]; eep_addr <= {wa[6:1], 1'b0}; eep_data <= wd[15:8]; wst <= W_EEP;
-                        end else wf_rp <= wf_rp + 7'd1;
+                        end else begin wf_rp<=wf_rp+7'd1;wst<=W_IDLE;end
                     end else if (wa < IMG_CHR[24:1]) begin        // tiles -> SDRAM
                         sd_wr_addr <= SD_TILE + (wa - IMG_TILE[24:1]); sd_wr_req <= 1'b1; wst <= W_SDRAM;
                     end else if (wa < IMG_MAP[24:1]) begin        // ROZ characters -> SDRAM, column-major within the tile
@@ -208,7 +222,7 @@ module gaia_mem #(
                     end else if (wa < IMG_END[24:1]) begin        // EEPROM default -> the core, a byte at a time
                         eep_we <= wbe[1]; eep_addr <= {wa[6:1], 1'b0}; eep_data <= wd[15:8];
                         wst <= W_EEP;
-                    end else begin wf_rp <= wf_rp + 7'd1; end     // beyond the image: dropped
+                    end else begin wf_rp<=wf_rp+7'd1;wst<=W_IDLE;end // Drop this entry, then acquire the next FIFO head.
                 end
                 W_EEP: begin
                     eep_we <= wbe[0]; eep_addr <= {wa[6:1], 1'b1}; eep_data <= wd[7:0];
@@ -225,8 +239,8 @@ module gaia_mem #(
 
     // Local profile for runtime clients/packing only. Download decoding above
     // retains the original early-prefix timing; no load byte is delayed.
-    (* preserve, dont_merge *) logic render_mystic, render_violent;
-    always_ff @(posedge clk) begin render_mystic <= mystic; render_violent<=violent;end
+    (* preserve, dont_merge *) logic render_mystic, render_violent,render_metam;
+    always_ff @(posedge clk) begin render_mystic <= mystic; render_violent<=violent||metam;render_metam<=metam;end
     // --------------------------------------------------------------- SDRAM
     logic [24:1] c_addr  [6];
     logic        c_req   [6];
@@ -242,10 +256,13 @@ module gaia_mem #(
     logic  [9:0] b_widx;
 
     // the memory test drives the ports while it runs (the core is in reset)
+    logic t_lvc_req;logic[14:0]t_lvc_addr;
     logic        t_prog_req, t_snd_req, t_tile_req, t_blk_req, t_map_req, t_pcm_req, t_spr_req;
     logic [22:1] t_prog_addr; logic [17:0] t_snd_addr; logic [19:0] t_tile_addr; logic [15:0] t_blk_addr;
     logic [19:0] t_map_addr;  logic [21:0] t_pcm_addr; logic [19:0] t_spr_addr;
     logic        t_vram_req, t_vram_we; logic [15:0] t_vram_addr, t_vram_wdata;
+    wire lvc_req_i=test_run ? t_lvc_req : lvc_req;
+    wire[14:0]lvc_addr_i=test_run ? t_lvc_addr : lvc_addr;
     wire         prog_req_i  = test_run ? t_prog_req  : prog_req;
     wire [22:1]  prog_addr_i = test_run ? t_prog_addr : prog_addr;
     wire         snd_req_i   = test_run ? t_snd_req   : snd_req;
@@ -267,7 +284,7 @@ module gaia_mem #(
     wire [15:0]  vram_wdata_i = test_run ? t_vram_wdata : vram_wdata;
 
     mem_test #(.SHRINK(TEST_SHRINK)) u_test (
-        .clk(clk), .init(init), .mystic(render_mystic), .violent(render_violent), .ready(ready), .start(test_start), .run(test_run), .done(test_done),
+        .clk(clk), .init(init), .mystic(render_mystic), .violent(render_violent),.metam(render_metam),.lvc_req(t_lvc_req),.lvc_addr(t_lvc_addr),.lvc_ack(lvc_ack),.lvc_q(lvc_q), .ready(ready), .start(test_start), .run(test_run), .done(test_done),
         .ok(test_ok), .stable(test_stable), .vram_ok(vram_ok), .vram_bad(vram_bad),
         .dl_we(dl_we && !dl_we_d), .dl_addr(dl_addr), .dl_data(dl_data),
         .prog_req(t_prog_req), .prog_addr(t_prog_addr), .prog_ack(prog_ack), .prog_q(prog_q),
@@ -324,6 +341,28 @@ module gaia_mem #(
     // character blocks (16 words, streamed to the client as they arrive)
     typedef enum logic [1:0] { B_IDLE, B_RUN, B_ACK } bst_t;
     bst_t  bst;
+    logic[14:0]lvc_addr_l;logic lvc_continuous;logic[1:0]road_rr;
+    logic grant_tile,grant_spr,grant_lvc;
+    always_comb begin
+        grant_tile=0;grant_spr=0;grant_lvc=0;
+        case(road_rr)
+            2'd0:begin
+                if(tile_req_i&&!tile_ack)grant_tile=1;
+                else if(spr_req_i&&!spr_ack)grant_spr=1;
+                else if(lvc_req_i&&!lvc_ack)grant_lvc=1;
+            end
+            2'd1:begin
+                if(spr_req_i&&!spr_ack)grant_spr=1;
+                else if(lvc_req_i&&!lvc_ack)grant_lvc=1;
+                else if(tile_req_i&&!tile_ack)grant_tile=1;
+            end
+            default:begin
+                if(lvc_req_i&&!lvc_ack)grant_lvc=1;
+                else if(tile_req_i&&!tile_ack)grant_tile=1;
+                else if(spr_req_i&&!spr_ack)grant_spr=1;
+            end
+        endcase
+    end
     logic  [1:0] bsel;                  // 0 tiles, 1 sprites, 2 ROZ blocks
     logic [19:0] tile_addr_l;
     logic [19:0] spr_addr_l;
@@ -331,7 +370,12 @@ module gaia_mem #(
     logic [15:0] blk_addr_part;       // identity of a suspended, not active, block
     logic [15:0] bw [5];
     wire [21:0] tile_byte_offset = {2'd0,tile_addr_i} + {tile_addr_i,2'b00};
-    wire [22:0] spr_word_offset = {3'd0,spr_addr_i} + {1'b0,spr_addr_i,2'b00};
+    // Mystic uses five words per sprite group. Fold its constant base into a
+    // three-operand carry-save sum, avoiding a second carry chain after 5*x.
+    wire [23:0] spr_x1={4'd0,spr_addr_i}, spr_x4={2'd0,spr_addr_i,2'b00};
+    wire [23:0] spr_saved_sum=spr_x1^spr_x4^SD_M_SPR;
+    wire [23:0] spr_saved_carry=((spr_x1&spr_x4)|(spr_x1&SD_M_SPR)|(spr_x4&SD_M_SPR))<<1;
+    wire [23:0] mystic_spr_address=spr_saved_sum+spr_saved_carry;
     // A ROZ tile fetch (64 words, ~140 clocks) yields to the tilemap's and the
     // sprite renderer's fetches, which have a line to finish while the ROZ
     // plane runs lines ahead: a pending request of theirs aborts the burst
@@ -371,9 +415,10 @@ module gaia_mem #(
     wire   [6:0] blk_n_now = blk_n + 7'((b_wr && bsel == 2'd2) ? 1 : 0);   // with this clock's word
     always_ff @(posedge clk) begin
         blk_wr <= 1'b0;
-        if (init) begin bst <= B_IDLE; b_req <= 1'b0; tile_ack <= 1'b0; spr_ack <= 1'b0; blk_ack <= 1'b0; blk_part <= 1'b0; blk_n <= '0; forced <= 1'b0; end
+        if (init) begin lvc_ack<=0;lvc_continuous<=0;road_rr<=0;bst <= B_IDLE; b_req <= 1'b0; tile_ack <= 1'b0; spr_ack <= 1'b0; blk_ack <= 1'b0; blk_part <= 1'b0; blk_n <= '0; forced <= 1'b0; end
         else begin
-            tile_ack <= 1'b0; spr_ack <= 1'b0; blk_ack <= 1'b0;
+            tile_ack <= 1'b0; spr_ack <= 1'b0; blk_ack <= 1'b0;lvc_ack<=0;
+            if(bst==B_RUN && bsel==2'd3 && (!metam || !lvc_req_i || lvc_addr_i!=lvc_addr_l))lvc_continuous<=0;
             if (!blk_req_i) blk_part <= 1'b0;
             case (bst)
                 B_IDLE: begin                   // not a request being acked right now
@@ -381,7 +426,7 @@ module gaia_mem #(
                     // chain on its enable. A suspended block keeps its own tag,
                     // so changing an unserved request cannot retag its tail.
                     blk_addr_l <= blk_addr_i;
-                    if (blk_req_i && !blk_ack && starved) begin      // its guaranteed turn
+                    if (!metam && blk_req_i && !blk_ack && starved) begin      // its guaranteed turn
                         bsel <= 2'd2; forced <= 1'b1;
                         if (blk_part && blk_addr_i == blk_addr_part) begin
                             blk_base <= blk_n[5:0];
@@ -394,16 +439,19 @@ module gaia_mem #(
                             b_addr <= SD_ROZ + {4'd0, blk_addr_i[13:0], 6'd0}; b_len <= 10'(flen);
                         end
                         blk_part <= 1'b0; b_req <= 1'b1; bst <= B_RUN;
-                    end else if (tile_req_i && !tile_ack) begin
-                        bsel <= 2'd0; tile_addr_l <= tile_addr_i;
+                    end else if (tile_req_i && !tile_ack && (!metam || grant_tile)) begin
+                        bsel <= 2'd0; tile_addr_l <= tile_addr_i;if(metam)road_rr<=1;
                         b_addr <= render_mystic ? 24'(tile_byte_offset >> 1) : SD_TILE + {3'd0, tile_addr_i, 1'b0};
                         b_len <= render_mystic ? 10'd3 : 10'd2; b_req <= 1'b1; bst <= B_RUN;
-                    end else if (spr_req_i && !spr_ack) begin
-                        bsel <= 2'd1; spr_addr_l <= spr_addr_i;
-                        b_addr <= render_mystic ? SD_M_SPR + 24'(spr_word_offset) :
+                    end else if (spr_req_i && !spr_ack && (!metam || grant_spr)) begin
+                        bsel <= 2'd1; spr_addr_l <= spr_addr_i;if(metam)road_rr<=2;
+                        b_addr <= render_mystic ? mystic_spr_address :
                             render_violent ? {2'b01,spr_addr_i,2'b00} : SD_SPR + {2'd0,spr_addr_i,2'b00};
                         b_len <= render_mystic ? 10'd5 : 10'd4; b_req <= 1'b1; bst <= B_RUN;
-                    end else if (blk_req_i && !blk_ack && quiet >= 5'(QUIET)) begin     // the port is free
+                    end else if(metam && grant_lvc)begin
+                        bsel<=2'd3;lvc_addr_l<=lvc_addr_i;lvc_continuous<=1;road_rr<=0;
+                        b_addr<={7'b1000000,lvc_addr_i,2'b00};b_len<=10'd4;b_req<=1;bst<=B_RUN;
+                    end else if (!metam && blk_req_i && !blk_ack && quiet >= 5'(QUIET)) begin     // the port is free
                         bsel <= 2'd2; forced <= 1'b0;
                         if (blk_part && blk_addr_i == blk_addr_part) begin     // resume the cut fetch
                             blk_base <= blk_n[5:0];
@@ -434,6 +482,7 @@ module gaia_mem #(
                     if (bsel == 2'd0 && tile_req_i && tile_addr_i == tile_addr_l) tile_ack <= 1'b1;
                     if (bsel == 2'd1 && spr_req_i  && spr_addr_i  == spr_addr_l)  spr_ack  <= 1'b1;
                     if (bsel == 2'd2 && blk_req_i  && blk_addr_i  == blk_addr_l)  blk_ack  <= 1'b1;
+                    if(bsel==2'd3 && metam && lvc_continuous && lvc_req_i && lvc_addr_i==lvc_addr_l)lvc_ack<=1;
                     bst <= B_IDLE;
                 end
                 default: bst <= B_IDLE;
@@ -444,6 +493,7 @@ module gaia_mem #(
     assign tile_fifth = render_mystic ? (tile_addr_l[0] ? bw[2][7:0] : bw[2][15:8]) : 8'd0;
     assign spr_fifth = render_mystic ? bw[4] : 16'd0;
     assign spr_q  = {bw[0], bw[1], bw[2], bw[3]};
+    assign lvc_q={bw[0],bw[1],bw[2],bw[3]};
 
     logic dram_cs_n_unused;
     sdram_ctrl #(.NCLI(6)) u_sdram (
@@ -459,11 +509,22 @@ module gaia_mem #(
     // --------------------------------------------------------------- PSRAM
     // CRAM0: the ROZ map (reader 0; the characters moved to the SDRAM)
     logic        cram0_r1_ack; logic [15:0] cram0_r1_q;
+    wire road_r_req,road_r_ack,road_w_req,road_w_accept,road_w_commit;
+    wire[22:0]road_r_addr,road_w_addr;wire[15:0]road_r_q,road_w_data;wire[1:0]road_w_be;
+    wire ps0_r_ack,ps0_w_ack,ps0_w_commit;wire[15:0]ps0_r_q;
+    pregx_road_psram_bridge road_bridge(.clk(clk),.reset(init || !metam),
+        .req(road_req),.we(road_we),.addr(road_addr),.be(road_be),.wdata(road_wdata),.ack(road_ack),.q(road_q),
+        .r_req(road_r_req),.r_addr(road_r_addr),.r_ack(road_r_ack),.r_q(road_r_q),
+        .w_req(road_w_req),.w_addr(road_w_addr),.w_be(road_w_be),.w_data(road_w_data),.w_accept(road_w_accept),.w_commit(road_w_commit));
+    assign map_ack=!metam && ps0_r_ack;assign map_q=ps0_r_q;
+    assign road_r_ack=metam && ps0_r_ack;assign road_r_q=ps0_r_q;
+    assign road_w_accept=metam && ps0_w_ack;assign road_w_commit=metam && ps0_w_commit;
+    assign ps0_wr_ack=!metam && ps0_w_ack;
     psram_port u_cram0 (
         .clk(clk), .reset(init), .slow(ps_slow),
-        .r0_req(map_req_i), .r0_addr(PS_MAP + 23'(map_addr_i[19:1])), .r0_ack(map_ack), .r0_q(map_q),
+        .r0_req(metam ? road_r_req : map_req_i), .r0_addr(metam ? road_r_addr : PS_MAP + 23'(map_addr_i[19:1])), .r0_ack(ps0_r_ack), .r0_q(ps0_r_q),
         .r1_req(1'b0), .r1_addr(23'd0), .r1_ack(cram0_r1_ack), .r1_q(cram0_r1_q),
-        .w_req(ps0_wr_req), .w_addr(ps_wr_addr), .w_data(wd), .w_be(wbe), .w_ack(ps0_wr_ack),
+        .w_req(metam ? road_w_req : ps0_wr_req), .w_addr(metam ? road_w_addr : ps_wr_addr), .w_data(metam ? road_w_data : wd), .w_be(metam ? road_w_be : wbe), .w_ack(ps0_w_ack), .w_commit(ps0_w_commit),
         .cram_a(cram0_a), .cram_dq(cram0_dq), .cram_wait(cram0_wait), .cram_clk(cram0_clk), .cram_adv_n(cram0_adv_n),
         .cram_cre(cram0_cre), .cram_ce0_n(cram0_ce0_n), .cram_ce1_n(cram0_ce1_n), .cram_oe_n(cram0_oe_n),
         .cram_we_n(cram0_we_n), .cram_ub_n(cram0_ub_n), .cram_lb_n(cram0_lb_n)
@@ -476,7 +537,7 @@ module gaia_mem #(
         .clk(clk), .reset(init), .slow(ps_slow),
         .r0_req(prog_req_i), .r0_addr(PS_PROG + 23'(prog_addr_i[22:1])), .r0_ack(prog_ack), .r0_q(prog_q),
         .r1_req(snd_req_i),  .r1_addr(PS_SND  + 23'(snd_addr_i[17:1])),  .r1_ack(snd_ack),  .r1_q(snd_word),
-        .w_req(ps1_wr_req), .w_addr(ps_wr_addr), .w_data(wd), .w_be(wbe), .w_ack(ps1_wr_ack),
+        .w_req(ps1_wr_req), .w_addr(ps_wr_addr), .w_data(wd), .w_be(wbe), .w_ack(ps1_wr_ack), .w_commit(),
         .cram_a(cram1_a), .cram_dq(cram1_dq), .cram_wait(cram1_wait), .cram_clk(cram1_clk), .cram_adv_n(cram1_adv_n),
         .cram_cre(cram1_cre), .cram_ce0_n(cram1_ce0_n), .cram_ce1_n(cram1_ce1_n), .cram_oe_n(cram1_oe_n),
         .cram_we_n(cram1_we_n), .cram_ub_n(cram1_ub_n), .cram_lb_n(cram1_lb_n)
@@ -518,6 +579,7 @@ module psram_port (
     input  logic        r1_req, input  logic [22:0] r1_addr, output logic r1_ack, output logic [15:0] r1_q,
     input  logic        w_req,  input  logic [22:0] w_addr,  input  logic [15:0] w_data, input logic [1:0] w_be,
     output logic        w_ack,
+    output logic        w_commit, // later pulse: actual write completed, not queued
 
     output logic [21:16] cram_a,
     inout  wire  [15:0] cram_dq,
@@ -558,7 +620,7 @@ module psram_port (
     wire pick1 = pend1 && !pick0;
 
     always_ff @(posedge clk) begin
-        r0_ack <= 1'b0; r1_ack <= 1'b0; w_ack <= 1'b0;
+        r0_ack <= 1'b0; r1_ack <= 1'b0; w_ack <= 1'b0; w_commit<=1'b0;
         rd_en <= 1'b0; wr_en <= 1'b0;
         if (reset) begin pst <= P_IDLE; c1_valid <= 1'b0; c2_valid <= 1'b0; pf_want <= 1'b0; last <= 1'b0; end
         else begin
@@ -598,7 +660,9 @@ module psram_port (
                     endcase
                     pst <= P_IDLE;
                 end
-                P_WRITE: if (!busy && !wr_en) pst <= P_IDLE;     // busy rises the cycle after the issue
+                P_WRITE: if (!busy && !wr_en) begin
+                    w_commit<=1'b1;pst<=P_IDLE;
+                end // busy rises the cycle after the issue
                 default: pst <= P_IDLE;
             endcase
         end
@@ -716,7 +780,9 @@ module mem_test #(
     input  logic        clk,
     input  logic        init,
     input  logic        mystic,
-    input  logic        violent,
+    input  logic        violent,metam,
+    output logic lvc_req,output logic[14:0]lvc_addr,
+    input logic lvc_ack,input logic[63:0]lvc_q,
     input  logic        ready,
     input  logic        start,
     output logic        run, done,
@@ -739,8 +805,8 @@ module mem_test #(
     // The ROM profile is stable throughout download/test. A local launch
     // register removes the global profile fanout from the test datapath;
     // identification is long settled before any profile-dependent boundary.
-    (* preserve, dont_merge *) logic test_mystic, test_violent;
-    always_ff @(posedge clk) begin test_mystic<=mystic;test_violent<=violent;end
+    (* preserve, dont_merge *) logic test_mystic, test_violent,test_metam;
+    always_ff @(posedge clk) begin test_mystic<=mystic;test_violent<=violent;test_metam<=metam;end
     localparam [24:0] IMG_SND  = 25'h0300000, IMG_TILE = 25'h0340000;
     localparam [24:0] IMG_CHR  = 25'h0540000, IMG_MAP  = 25'h06C0000, IMG_PCM  = 25'h0760000;
     localparam [24:0] IMG_SPR  = 25'h0B60000, IMG_EEP  = 25'h1360000;
@@ -748,7 +814,8 @@ module mem_test #(
     wire [24:0] image_tile = (test_mystic || test_violent) ? 25'h0240000 : IMG_TILE;
     wire [24:0] image_pcm = test_violent ? 25'h0640000 : test_mystic ? 25'h04C0000 : IMG_PCM;
     wire [24:0] image_spr = test_violent ? 25'h0a40000 : test_mystic ? 25'h08C0000 : IMG_SPR;
-    wire [24:0] image_eep = test_violent ? 25'h1240000 : test_mystic ? 25'h0DC0000 : IMG_EEP;
+    wire [24:0] image_eep = test_metam ? 25'h1280000 : test_violent ? 25'h1240000 : test_mystic ? 25'h0DC0000 : IMG_EEP;
+    wire[24:0]image_spr_end=test_metam ? 25'h1240000 : image_eep;
     // accesses per region, in each port's unit
     localparam [22:0] N_PROG = 23'h180000, N_SND = 23'h040000, N_TILE = 23'h080000, N_CHR = 23'h003000;   // chr: 64-word tiles
     localparam [22:0] N_MAP  = 23'h050000, N_PCM = 23'h400000, N_SPR  = 23'h100000;
@@ -769,10 +836,10 @@ module mem_test #(
         b2_sel[0] <= (b1_addr < image_snd);
         b2_sel[1] <= (b1_addr >= image_snd) && (b1_addr < image_tile);
         b2_sel[2] <= (b1_addr >= image_tile) && (b1_addr < ((test_mystic || test_violent) ? image_pcm : IMG_CHR));
-        b2_sel[3] <= !(test_mystic || test_violent) && (b1_addr >= IMG_CHR) && (b1_addr < IMG_MAP);
+        b2_sel[3] <= test_metam ? (b1_addr>=25'h1240000 && b1_addr<image_eep) : (!(test_mystic || test_violent) && (b1_addr >= IMG_CHR) && (b1_addr < IMG_MAP));
         b2_sel[4] <= !(test_mystic || test_violent) && (b1_addr >= IMG_MAP) && (b1_addr < IMG_PCM);
         b2_sel[5] <= (b1_addr >= image_pcm) && (b1_addr < image_spr);
-        b2_sel[6] <= (b1_addr >= image_spr) && (b1_addr < image_eep);
+        b2_sel[6] <= (b1_addr >= image_spr) && (b1_addr < image_spr_end);
         for (int i = 0; i < 7; i++) begin
             if (init || b2_first) lsum[i] <= (i == 0 && b2_first) ? 24'(b2_data) : '0;
             else if (b2_we && b2_sel[i]) lsum[i] <= lsum[i] + 24'(b2_data);
@@ -802,23 +869,33 @@ module mem_test #(
         lower_pair = {1'b0,q[15:8]} + {1'b0,q[7:0]};
         return {1'b0,upper_pair} + {1'b0,lower_pair};
     endfunction
+    wire [11:0] byte_sums[7];
+    assign byte_sums[0]=12'(prog_q[15:8])+12'(prog_q[7:0]);
+    assign byte_sums[1]=12'(snd_q);
+    assign byte_sums[2]=12'(sum_four_bytes(tile_q))+12'(tile_fifth);
+    assign byte_sums[3]=test_metam ? 12'(sum_four_bytes(lvc_q[63:32]))+12'(sum_four_bytes(lvc_q[31:0])) : 12'd0;
+    assign byte_sums[4]=12'(map_q[15:8])+12'(map_q[7:0]);
+    assign byte_sums[5]=12'(pcm_q);
+    assign byte_sums[6]=(12'(sum_four_bytes(spr_q[63:32]))+12'(sum_four_bytes(spr_q[31:0])))+
+        (12'(spr_fifth[15:8])+12'(spr_fifth[7:0]));
     always_comb begin
         case (region)
-            3'd0: begin ack = prog_ack; bytes = 12'(prog_q[15:8]) + 12'(prog_q[7:0]); n_end = ((test_mystic || test_violent) ? 23'h100000 : N_PROG) >> SHRINK; end
-            3'd1: begin ack = snd_ack;  bytes = 12'(snd_q); n_end = N_SND >> SHRINK; end
-            3'd2: begin ack = tile_ack; bytes = 12'(sum_four_bytes(tile_q)) + 12'(tile_fifth); n_end = (test_violent ? 23'h100000 : N_TILE) >> SHRINK; end
-            3'd3: begin ack = blk_ack;  bytes = 12'd0; n_end = N_CHR >> SHRINK; end   // summed per streamed word below
-            3'd4: begin ack = map_ack;  bytes = 12'(map_q[15:8]) + 12'(map_q[7:0]); n_end = N_MAP >> SHRINK; end
-            3'd5: begin ack = pcm_ack;  bytes = 12'(pcm_q); n_end = N_PCM >> SHRINK; end
+            3'd0: begin ack = prog_ack; n_end = ((test_mystic || test_violent) ? 23'h100000 : N_PROG) >> SHRINK; end
+            3'd1: begin ack = snd_ack;  n_end = N_SND >> SHRINK; end
+            3'd2: begin ack = tile_ack; n_end = (test_violent ? 23'h100000 : N_TILE) >> SHRINK; end
+            3'd3: begin ack = test_metam ? lvc_ack : blk_ack; n_end = (test_metam ? 23'h008000 : N_CHR) >> SHRINK; end   // summed per streamed word below
+            3'd4: begin ack = map_ack;  n_end = N_MAP >> SHRINK; end
+            3'd5: begin ack = pcm_ack;  n_end = N_PCM >> SHRINK; end
             default: begin ack = spr_ack;
-                bytes = (12'(sum_four_bytes(spr_q[63:32])) + 12'(sum_four_bytes(spr_q[31:0])))
-                      + (12'(spr_fifth[15:8]) + 12'(spr_fifth[7:0]));
                 n_end = (test_mystic ? 23'h080000 : N_SPR) >> SHRINK; end
         endcase
+        bytes=12'd0;
+        for(int g=0;g<7;g++) bytes |= byte_sums[g] & {12{region_onehot[g]}};
     end
     assign prog_req = run && st == T_REQ && region_onehot[0];  assign prog_addr = idx[21:0];
     assign snd_req  = run && st == T_REQ && region_onehot[1];  assign snd_addr  = idx[17:0];
     assign tile_req = run && st == T_REQ && region_onehot[2];  assign tile_addr = idx[19:0];
+    assign lvc_req=run && st==T_REQ && region_onehot[3] && test_metam;assign lvc_addr=idx[14:0];
     assign blk_req  = run && st == T_REQ && region_onehot[3] && !(test_mystic || test_violent);  assign blk_addr  = idx[15:0];
     assign map_req  = run && st == T_REQ && region_onehot[4] && !(test_mystic || test_violent);  assign map_addr  = {idx[18:0], 1'b0};
     assign pcm_req  = run && st == T_REQ && region_onehot[5];  assign pcm_addr  = idx[21:0];
@@ -830,6 +907,7 @@ module mem_test #(
     assign vram_addr  = idx[15:0];
     assign vram_wdata = (st == T_VZ) ? 16'd0 : vpat;
 
+    wire absent_region=(test_mystic || test_violent) && (region==3'd4 || (region==3'd3 && !test_metam));
     always_ff @(posedge clk) begin
         start_d <= start;
         if (init) begin st <= T_IDLE; region_onehot <= 7'd0; run <= 1'b0; done <= 1'b0; ok <= '0; stable <= '0; vram_ok <= 1'b0; vram_bad <= '0; vbad <= '0; end
@@ -837,11 +915,11 @@ module mem_test #(
             T_IDLE: if (start && !start_d && ready) begin
                 run <= 1'b1; done <= 1'b0; region <= 3'd0; region_onehot <= 7'b0000001; pass <= 1'b0; idx <= '0; acc <= '0; add_pend <= 1'b0; st <= T_REQ;
             end
-            T_REQ: if ((test_mystic || test_violent) && (region == 3'd3 || region == 3'd4)) begin
+            T_REQ: if (absent_region) begin
                 // Absent ROZ regions: leave ok/stable low, advertised by mask67.
                 add_pend <= 1'b0; st <= T_SUM;
             end else begin
-                if (region == 3'd3) begin       // blocks: a word a clock as it streams
+                if (region == 3'd3 && !test_metam) begin       // blocks: a word a clock as it streams
                     add_pend <= blk_wr; bytes_r <= 12'(blk_data[15:8]) + 12'(blk_data[7:0]);
                 end else begin
                     add_pend <= ack; bytes_r <= bytes;
@@ -856,8 +934,8 @@ module mem_test #(
                 add_pend <= 1'b0; st <= T_NEXT;
             end
             T_NEXT: begin
-                if (!pass) begin asum[region] <= acc; ok[region] <= !((test_mystic || test_violent) && (region == 3'd3 || region == 3'd4)) && (acc == lsum[region]); end
-                else stable[region] <= !((test_mystic || test_violent) && (region == 3'd3 || region == 3'd4)) && (acc == asum[region]);
+                if (!pass) begin asum[region] <= acc; ok[region] <= !absent_region && (acc == lsum[region]); end
+                else stable[region] <= !absent_region && (acc == asum[region]);
                 acc <= '0; idx <= '0; st <= T_REQ;
                 if (region != 3'd6) begin region <= region + 3'd1; region_onehot <= region_onehot << 1; end
                 else if (!pass) begin pass <= 1'b1; region <= 3'd0; region_onehot <= 7'b0000001; end

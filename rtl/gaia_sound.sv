@@ -15,6 +15,7 @@ module gaia_sound #(
     input  logic        clk,
     input  logic        reset,
     input  logic        violent,
+    input logic metam,
     input  logic        mystic,         // stable board profile through reset/run
     input  logic        cen_8m,
     input  logic        cen_48k,
@@ -179,15 +180,16 @@ module gaia_sound #(
     // Mystic board: K1ch0..3=0.8,ch4..7=2; K2all=0.5. The shared engine
     // selects these fixed Q2.14 constants at runtime from the stable profile.
     k054539 #(.HEXDIR(HEXDIR), .GAIN_Q14({16'h8000, 16'h8000, 16'h8000, 16'h4000, 16'h4000, 16'h4000, 16'h4000, 16'h4000}),
+        .GAIN_Q14_METAM({16'h7333,16'h7333,16'h7333,16'h7333,16'h3333,16'h3333,16'h3333,16'h3333}),
         .GAIN_Q14_VIO({16'h8000,16'h8000,16'h8000,16'h8000,16'h4000,16'h4000,16'h4000,16'h4000}),
         .GAIN_Q14_ALT({16'h8000,16'h8000,16'h8000,16'h8000,16'h3333,16'h3333,16'h3333,16'h3333})) u_k1 (
-        .clk(clk), .reset(reset), .cen_48k(cen_48k), .gain_alt(mystic), .gain_vio(violent),
+        .clk(clk), .reset(reset), .cen_48k(cen_48k), .gain_metam(metam),.gain_alt(mystic), .gain_vio(violent),
         .cs(1'b1), .wr(mem_wr && write_sel_k1), .rd(mem_rd && sel_k1), .addr(A[9:0]), .wdata(cpu_do), .rdata(k1_q), .rd_stall(k1_stall),
         .rom_req(p1_req), .rom_addr(p1_addr), .rom_ack(p1_ack), .rom_q(pcm_q),
         .timer_out(timer1), .snd_l(l1), .snd_r(r1)
     );
-    k054539 #(.HEXDIR(HEXDIR), .GAIN_Q14_ALT({8{16'h2000}})) u_k2 (
-        .clk(clk), .reset(reset), .cen_48k(cen_48k), .gain_alt(mystic), .gain_vio(violent),
+    k054539 #(.HEXDIR(HEXDIR),.GAIN_Q14_METAM({8{16'h3333}}), .GAIN_Q14_ALT({8{16'h2000}})) u_k2 (
+        .clk(clk), .reset(reset), .cen_48k(cen_48k), .gain_metam(metam),.gain_alt(mystic), .gain_vio(violent),
         .cs(1'b1), .wr(mem_wr && write_sel_k2), .rd(mem_rd && sel_k2), .addr(A[9:0]), .wdata(cpu_do), .rdata(k2_q), .rd_stall(k2_stall),
         .rom_req(p2_req), .rom_addr(p2_addr), .rom_ack(p2_ack), .rom_q(pcm_q),
         .timer_out(timer2), .snd_l(l2), .snd_r(r2)
@@ -218,9 +220,10 @@ module gaia_sound #(
     assign wait_n = !((rom_sel && !rom_have) || k1_stall || k2_stall);
 
     // mix: Gaia0.3.2 follows the board's stereo routing and saturates the
-    // two-chip sum. Confirmed Mystic/Vio routing and arithmetic stay intact.
+    // two-chip sum; Metamorphic uses the same pinned stereo routing.
+    // Confirmed Mystic/Vio routing and arithmetic stay intact.
     // Adapted from plasticbugs c1a662e6 / decoryah ebcb5932, GPL-3.0.
-    wire accurate_gaia = !(mystic || violent);
+    wire accurate_gaia = metam || !(mystic || violent);
     function automatic [15:0] sat_add(input logic [15:0] a, b);
         logic signed [16:0] sum;
         begin

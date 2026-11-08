@@ -5,7 +5,7 @@
 `default_nettype none
 module mystic_rom_readback (
     input logic clk, reset,
-    input logic violent,
+    input logic violent,metam,
     input logic req,                 // held through ack; deassert cancels/drains
     input logic sprite,
     input logic [12:0] offset,        // CPU window WORD offset
@@ -28,6 +28,7 @@ module mystic_rom_readback (
 );
     typedef enum logic [2:0] {IDLE, TILE_CALC, SPR_CALC, TILE_WAIT, SPR_WAIT, HOLD, BANK_REDUCE} state_t;
     state_t state;
+    wire rng4=violent||metam;
     logic [12:0] off_r;
     logic plane5_r, signed_bank_unsupported;
     logic [9:0] bank_r;
@@ -99,8 +100,8 @@ module mystic_rom_readback (
                     end
                 end
                 SPR_CALC: begin
-                    fifth_r <= !violent && off_r[1];
-                    if (violent) begin
+                    fifth_r <= !rng4 && off_r[1];
+                    if (rng4) begin
                         if (spr_rng_word >= 25'h0400000) begin out_of_range<=1'b1;data<='0;ack<=1'b1;state<=HOLD;end
                         else begin spr_addr<=spr_rng_word[21:2];select_r<=spr_rng_word[1:0];spr_req<=1'b1;state<=SPR_WAIT;end
                     end else if (off_r[1]) begin

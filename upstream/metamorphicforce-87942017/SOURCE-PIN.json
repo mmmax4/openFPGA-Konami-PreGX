@@ -1,0 +1,18 @@
+{
+  "repository": "https://github.com/decoryah/Arcade-MetamorphicForce_MiSTer",
+  "commit": "879420178efb2e632e140c51311f1ffe72caaa31",
+  "scope": "Read-only selective upstream baseline and original tests; not imported into fitted RTL. New phase current-head check matches this existing historical pin.",
+  "copyright": "Copyright (C) 2026 decoryah, per original README; derivative plasticbugs base and MAME attribution retained verbatim",
+  "terms": "Original root GPL-3.0; transcription lvc_ref.h retains BSD-3-Clause MAME/Olivier Galibert attribution; no new dependency import",
+  "files_sha256": {
+    "rtl/k053250_lvc.sv": "c30fedc0fcc474fa134ca71d4bb1bbb1b09416601a36ad687c790b6482e37f1b",
+    "sim/tb_lvc.cpp": "7dca6d90c9879fe6caeda2805e47c2d64715e8d7573268f290199fedeb3fc401",
+    "sim/tb_lvc_top.sv": "a78b920001fa7ce8eb079d1cf95ae9b5f83a46022d0cf4104ca2664fd62e6303",
+    "sim/lvc_ref.h": "66ccda14f89feae004941c03ccd2417ff202d6c10016ec646cd31fe20a405433",
+    "sim/run_lvc.sh": "6089ddceb8e0a22cd223384aa8862da2cdde7a2ed0563f16745702366836203c",
+    "LICENSE": "589ed823e9a84c56feb95ac58e7cf384626b9cbf4fda2a907bc36e103de1bad2",
+    "README.md": "d423d04171e5602ccd9126be9b585f715f8a4cea6794edcdf7deb170f4e5b9cd",
+    "VENDOR.md": "a1e92dbfb56913a481d8267386a21f2882de07515111d74b4040c483f1e635bd",
+    "docs/hardware.md": "29f9ac67e0e7f9993e2af094cad0108531d5b2b46e76fa8e9120d8838a6ace0f"
+  }
+}

@@ -1,33 +1,38 @@
-Konami pre-GX — release 0.3 — mmmax4
+Konami pre-GX — release 0.4.0 — mmmax4
 
-Playable and tested on Analogue Pocket: Gaiapolis (ver EAF), Mystic Warriors
-(ver EAA), Violent Storm (ver EAC). Other profiles remain planned.
-Violent Storm sprite gaps are confirmed resolved in observed gameplay/demo;
-Gaiapolis 0.3.2 graphics/audio improvements and Mystic's 0.2.1 name workaround
-are included. Gateware is identical to the tested three-game candidate.
-The creator Info icon uses the mmmax4 GitHub avatar.
+Playable profiles: Gaiapolis (ver EAF), Mystic Warriors (ver EAA),
+Violent Storm (ver EAC), Metamorphic Force (ver EAA).
+Metamorphic Force gameplay is confirmed on Analogue Pocket; previous three-game
+Pocket results and Mystic's0.2.1 scene-specific intro workaround are retained.
+Gateware is byte-identical to the Pocket-tested m4p01 candidate. Release metadata
+and the four-game banner do not change the FPGA hardware.
 
 INSTALL
 Copy Cores/, Platforms/, Assets/ and Presets/ to the SD root, merging contents.
-Presets is required for the correct per-game menu labels. Preserve existing
-ROMs and saves. Open Arcade Multi -> Konami pre-GX and select an installed game.
-Supply original gaiapols, mystwarr and viostorm sets. No ROM, EEPROM dump or save
-is included. Build images using the matching source tools; copy gaiapols.rom,
-mystwarr.rom and viostorm.rom to Assets/pregx/mmmax4.pregx/ on the SD.
-Keep independent gaiapols.sav, mystwarr.sav and viostorm.sav under
-Saves/pregx/mmmax4.pregx/. This package does not install or replace saves.
-ROM setup: https://github.com/mmmax4/openFPGA-Konami-PreGX/blob/v0.3/docs/ROM_SETUP.md
+Presets is required for per-game menu labels. Preserve original ROMs and saves.
+Open Arcade Multi -> Konami pre-GX and select an installed game.
+Supply original gaiapols, mystwarr, viostorm and metamrph sets; no ROM, factory
+EEPROM dump or save is included. Use the matching source ROM builders and copy
+gaiapols.rom, mystwarr.rom, viostorm.rom and metamrph.rom into
+Assets/pregx/mmmax4.pregx/. Saves remain separate MAME-style .sav names under
+Saves/pregx/mmmax4.pregx/. This package never installs or replaces a save.
+ROM setup: https://github.com/mmmax4/openFPGA-Konami-PreGX/blob/v0.4.0/docs/ROM_SETUP.md
 
 CORRESPONDING SOURCE AND TOOLS (separate download, not needed on the SD)
-https://github.com/mmmax4/openFPGA-Konami-PreGX/releases/tag/v0.3
-Download mmmax4.pregx-v0.3-source.zip alongside this binary archive.
-The source preserves the preferred TG68K.C VHDL, generated source, conversion
-recipe, build scripts, pinned dependencies, notices and functional tests.
-Checksums for both archives are provided as SHA256SUMS on that release page.
+https://github.com/mmmax4/openFPGA-Konami-PreGX/releases/tag/v0.4.0
+Download mmmax4.pregx-v0.4.0-source.zip alongside the binary archive.
+It preserves TG68K.C preferred VHDL, generated source, conversion recipe,
+build scripts, pinned dependencies, original notices and functional tests.
+SHA256SUMS verifies both archives. Analogizer CRT/SNAC, all multiplayer and
+high-score persistence remain separately unqualified. No complete-playthrough
+or complete original-program simulation qualification is claimed.
 
-Analogizer CRT/SNAC and high-score persistence remain separately unqualified.
-No complete playthrough of these exact bytes is claimed. The ordinary fade in
-the final demo screenshot is an expected transition, not a reported defect.
+ADDITIONAL METAMORPHIC FORCE PROVENANCE
+K053250 Pocket derivative: decoryah/Arcade-MetamorphicForce_MiSTer,
+commit879420178efb2e632e140c51311f1ffe72caaa31, Copyright (C)2026 decoryah,
+GPL-3.0. Pocket scheduling/memory integration adaptations: mmmax4, November2026.
+Original source/tests/README/GPLv3 accompany the corresponding source archive.
+Original inherited terms and notices below remain applicable and unchanged.
 
 CREDITS AND REQUIRED NOTICES
 Applicable project code is GNU GPLv3. TG68K.C is used under LGPL-3.0-or-later;

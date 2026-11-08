@@ -1,5 +1,5 @@
 // Private original-image identity, without adding headers or patching ROMs.
-// CRC constants bind the two exact host SHA-verified M1b/M2 memory images.
+// CRC constants bind exact host SHA-verified M1b/M2/M3/M4 memory images.
 // Early profile after byte255 precedes every profile-dependent image region;
 // valid remains low until an ordered complete image and its CRC are accepted.
 `default_nettype none
@@ -10,12 +10,16 @@ module pregx_rom_profile (
     input  logic  [7:0] dl_data,
     output logic        violent,
     output logic        mystic,
+    output logic        metam,
     output logic        identified,
     output logic        valid,
     output logic        begin_image
 );
     localparam logic [31:0] GAIA_PREFIX = 32'hb3464cae;
     localparam logic [31:0] MYSTIC_PREFIX = 32'hc821c2b6;
+    localparam logic [31:0] METAM_PREFIX = 32'hf84f8701;
+    localparam logic [31:0] METAM_CRC = 32'hf5fbec54;
+    localparam logic [24:0] METAM_LAST = 25'h128007f;
     localparam logic [31:0] GAIA_CRC = 32'h13ba3e74;
     localparam logic [31:0] MYSTIC_CRC = 32'h4c82bad4;
     localparam logic [24:0] GAIA_LAST = 25'h136007f;
@@ -25,7 +29,7 @@ module pregx_rom_profile (
     logic [31:0] crc;
     logic [24:0] next_addr;
     initial begin
-        violent=1'b0; mystic=1'b0; identified=1'b0; valid=1'b0;
+        violent=1'b0; mystic=1'b0; metam=1'b0; identified=1'b0; valid=1'b0;
         we_d=1'b0; ordered=1'b0; crc=32'hffffffff; next_addr=25'd0;
     end
     wire byte_we = dl_we && !we_d;
@@ -66,16 +70,19 @@ module pregx_rom_profile (
                 if (dl_addr != next_addr) ordered <= 1'b0;
                 if (ordered && dl_addr == next_addr) begin
                     if (dl_addr == 25'd255) begin
-                        identified <= (crc_matches(crc,dl_data,crc_preimage(~GAIA_PREFIX))) || (crc_matches(crc,dl_data,crc_preimage(~MYSTIC_PREFIX))) || (crc_matches(crc,dl_data,crc_preimage(~32'he59535d0)));
+                        identified <= (crc_matches(crc,dl_data,crc_preimage(~GAIA_PREFIX))) || (crc_matches(crc,dl_data,crc_preimage(~MYSTIC_PREFIX))) || (crc_matches(crc,dl_data,crc_preimage(~32'he59535d0))) || (crc_matches(crc,dl_data,crc_preimage(~METAM_PREFIX)));
+                        metam <= crc_matches(crc,dl_data,crc_preimage(~METAM_PREFIX));
                         violent <= (crc_matches(crc,dl_data,crc_preimage(~32'he59535d0)));
                         if (crc_matches(crc,dl_data,crc_preimage(~32'he59535d0))) mystic<=1'b0;
                         else if (crc_matches(crc,dl_data,crc_preimage(~MYSTIC_PREFIX))) mystic <= 1'b1;
                         else if (crc_matches(crc,dl_data,crc_preimage(~GAIA_PREFIX))) mystic <= 1'b0;
+                        else if (crc_matches(crc,dl_data,crc_preimage(~METAM_PREFIX))) mystic <= 1'b0;
                     end
                     valid <= identified &&
-                        ((!violent && !mystic && dl_addr == GAIA_LAST && crc_matches(crc,dl_data,crc_preimage(~GAIA_CRC))) ||
-                         (!violent && mystic && dl_addr == MYSTIC_LAST && crc_matches(crc,dl_data,crc_preimage(~MYSTIC_CRC))) ||
-                         (violent && dl_addr == 25'h124007f && crc_matches(crc,dl_data,crc_preimage(~32'h14849de9))));
+                        ((!metam && !violent && !mystic && dl_addr == GAIA_LAST && crc_matches(crc,dl_data,crc_preimage(~GAIA_CRC))) ||
+                         (!metam && !violent && mystic && dl_addr == MYSTIC_LAST && crc_matches(crc,dl_data,crc_preimage(~MYSTIC_CRC))) ||
+                         (!metam && violent && dl_addr == 25'h124007f && crc_matches(crc,dl_data,crc_preimage(~32'h14849de9))) ||
+                         (metam && !violent && !mystic && dl_addr == METAM_LAST && crc_matches(crc,dl_data,crc_preimage(~METAM_CRC))));
                 end
             end
         end

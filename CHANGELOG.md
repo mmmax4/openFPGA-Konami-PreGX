@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0 — 2026-11-08
+
+- Adds Metamorphic Force (ver EAA), confirmed working on Pocket, with original-data ROM builder, separate save/settings and matching menu preset.
+- Adds the K053250 road/zoom plane, two-chip PCM profile and original board timing/controls, with shared RAM integration for Pocket.
+- Preserves Violent Storm sprite-row fixes, Gaiapolis0.3.2 graphics/audio and Mystic Warriors0.2.1 intro-name workaround.
+- Restores Metamorphic Force in its original banner slot, retaining existing logo positions and hiding pending games.
+- Adds lossless Pocket title/gameplay captures, exact corresponding source and updater-compatible three-component release filenames.
+- SD ZIP remains four runtime trees plus one README; no ROM or save payload.
+
 ## 0.3 — 2026-11-06
 
 - Adds Violent Storm (ver EAC), confirmed working on Pocket, with original-data

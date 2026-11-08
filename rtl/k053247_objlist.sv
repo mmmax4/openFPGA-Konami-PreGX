@@ -27,6 +27,7 @@ module k053247_objlist #(
     input  logic        clk,
     input  logic        reset,
     input  logic        violent,
+    input logic metam,
     input  logic        mystic,        // stable profile through list build/use
     input logic intro_postportrait,   // explicit opt-in and post-portrait layout
     input logic stream_enable,        // optional RGB producer: deferred shadows last
@@ -185,7 +186,7 @@ module k053247_objlist #(
     // ---- the line range (k053247_draw's vertical geometry, once per frame)
     logic [21:0] yr [256];
     always_ff @(posedge clk) yr_q <= yr[yr_addr];
-    wire signed [17:0] DYS = violent ? -18'sd23 : mystic ? -18'sd24 : 18'(DY);
+    wire signed [17:0] DYS = metam ? -18'sd24 : violent ? -18'sd23 : mystic ? -18'sd24 : 18'(DY);
     wire  [3:0] szc = w0[11:8];
     wire  [3:0] height = 4'd1 << szc[3:2];
     wire  [4:0] ghsh = 5'd13 - {3'd0, szc[3:2]};
@@ -225,7 +226,7 @@ module k053247_objlist #(
     wire        active   = w0[15];
     wire  [7:0] zcode_raw = w0[7:0];
     wire  [7:0] zcode    = opset[4] ? (8'hff - zcode_raw) : zcode_raw;
-    wire  [7:0] pri      = violent ? {2'd0,w6[7:5],3'd0} : {w6[7:5], 5'd0};
+    wire  [7:0] pri      = (violent || metam) ? {2'd0,w6[7:5],3'd0} : {w6[7:5], 5'd0};
     wire  [1:0] shadow_r = w6[11:10];
 
     // konamigx_mixer's shadow decision
@@ -233,10 +234,10 @@ module k053247_objlist #(
     wire  [1:0] shadow_idx    = shadow_demote ? (shadow_r - 2'd1) : 2'd0;
     wire        has_shadow    = |shadow_r;
     wire        add_solid     = !has_shadow || shadow_demote;
-    wire        solid_blend   = (mystic || violent) && (w6[9:8] != 2'd0);
+    wire        solid_blend   = (mystic || violent || metam) && (w6[9:8] != 2'd0);
     wire  [3:0] solid_mode    = {2'd0,solid_blend,has_shadow};
     wire        shadowon_sel  = shadowon[shadow_idx];
-    wire        add_shadow    = has_shadow && !(violent && shadow_r==2'd3) &&
+    wire        add_shadow    = has_shadow && !((violent || metam) && shadow_r==2'd3) &&
                                 (shadow_demote ? shadowon_sel : shadowon[0]);
     wire  [3:0] shadow_mode   = shadow_demote ? 4'd4 : 4'd5;
     wire  [7:0] spri          = opset[5] ? pri : shdpri[shadow_idx];
@@ -271,7 +272,7 @@ module k053247_objlist #(
                     if (start) begin
                         busy <= 1'b1; nobj <= '0; ent <= 8'd255;
                         which <= 1'b0; overflow <= 1'b0;
-                        partition_enabled<=(mystic || violent) && stream_enable;
+                        partition_enabled<=(mystic || violent || metam) && stream_enable;
                         shadow_conditions<=shdprisel;
                         intro_index<=6'd0;intro_match<=1'b1;intro_skip<=1'b0;
                         st <= INTRO_COMPAT && mystic && intro_postportrait ? O_INTRO_ADDR : O_B0;

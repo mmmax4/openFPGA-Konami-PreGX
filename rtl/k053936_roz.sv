@@ -41,7 +41,8 @@ module k053936_roz #(
     // K053936GP_set_offset(0, -10, 0) for gaiapolis
     parameter int OFFS_X = -10,
     parameter int OFFS_Y = 0,
-    parameter int NENT   = 128          // cached tiles
+    parameter int NENT   = 128,         // production capacity:128, fixed32-set layout
+    parameter bit EXTERNAL_RAM = 1'b0   // shared physical ROZ/road allocation
 ) (
     input  logic        clk,
     input  logic        reset,
@@ -89,7 +90,12 @@ module k053936_roz #(
     output logic [11:0] pix,
     output logic        opaque,
 
-    output logic        unsupported
+    output logic        unsupported,
+
+    output wire cache_we, output wire [12:0] cache_wa, cache_ra,
+    output wire [15:0] cache_wdata, input wire [15:0] cache_q,
+    output wire line_we, output wire [11:0] line_wa, line_ra,
+    output wire [11:0] line_wdata, input wire [11:0] line_q
 );
     // ------------------------------------------------------------- transform
     function automatic logic signed [31:0] sx16(input logic [15:0] v);
@@ -110,9 +116,7 @@ module k053936_roz #(
     function automatic logic [11:0] bank_base(input logic [2:0] b);
         return {1'b0, b, 8'd0} + {2'b0, b, 7'd0};
     endfunction
-    logic [11:0] lbuf [NBANK*LB_STRIDE];
     logic [11:0] rd, rd_base, wa;
-    always_ff @(posedge clk) rd <= lbuf[rd_base + 12'(px)];
     assign pix    = rd;
     assign opaque = |rd[3:0];
 
@@ -147,35 +151,40 @@ module k053936_roz #(
     wire [12:0] maxy = {clip_ey, 7'd0} - 13'd1;
 
     // ------------------------------------------------------------ tile cache
-    // tags and valid bits are registers (every entry is compared each clock);
-    // the tile data and the colour bits are RAMs addressed by the hit entry
+    // 128 tiles, four ways in32sets. Hash both tile coordinates; GF(32)
+    // multiplier7 was selected from original-state miss traffic before native
+    // testing. Two 64x19 true-dual-port valid+tag+colour RAMs replace the register
+    // CAM and old attribute RAM. Capacity and three-clock hits are retained;
+    // tree-PLRU replacement changes miss traffic.
     logic [31:0] cx, cy;
     logic [12:0] srcx, srcy;
     wire  [17:0] ti_now = {cy[28:20], cx[28:20]};     // {row, column} of the tile on the plane
 
-    logic [17:0]     tag   [NENT];
-    logic [NENT-1:0] valid, match;
-    logic  [4:0]     attr  [NENT];      // {attribute bit 7, colour nibble}
-    logic [15:0]     tmem  [NENT*64];
-    logic  [6:0]     fifo_ptr, fill_ent;
+    logic [2:0] replace_tree[32];
+    logic [6:0] fill_ent, victim_pending;
     logic [15:0]     tmem_rd;
-    logic  [4:0]     attr_rd;
+    wire   [4:0]    attr_rd;
     logic  [7:0]     d1, d2, d3;
     logic [17:0]     ti;
 
-    function automatic logic [6:0] enc(input logic [NENT-1:0] m);
-        logic [6:0] r;
-        r = '0;
-        for (int i = 0; i < NENT; i++) if (m[i]) r = r | 7'(i);
-        return r;
+    function automatic logic [4:0] gf32_x(input logic [4:0] row);
+        return {row[3:0],1'b0} ^ (row[4] ? 5'h05 : 5'h00);
     endfunction
-    wire [6:0] ent_now = enc(match);
+    function automatic logic [4:0] cache_set(input logic [17:0] tile);
+        // In GF(32), 7*r = r XOR x*r XOR x*x*r; x^5+x^2+1.
+        return tile[4:0] ^ tile[13:9] ^ gf32_x(tile[13:9]) ^ gf32_x(gf32_x(tile[13:9]));
+    endfunction
+    function automatic logic [2:0] touch_way(input logic [2:0] tree,input logic [1:0] way);
+        logic [2:0] result;
+        result=tree;
+        result[2]=!way[1];
+        if(way[1]) result[1]=!way[0];
+        else result[0]=!way[0];
+        return result;
+    endfunction
     // PCB palette packing: even tile low nibble, odd tile high nibble.
     // plasticbugs932df6b0 / decoryah ebcb5932; keep the local timing repair.
     wire [3:0] nib_now = ti[0] ? d1[7:4] : d1[3:0];
-
-    always_ff @(posedge clk)
-        for (int i = 0; i < NENT; i++) match[i] <= valid[i] && (tag[i] == ti_now);
 
     typedef enum logic [3:0] {
         R_IDLE, R_SETUP, R_SETUP2, R_PIX, R_LOOK, R_CHK,
@@ -183,21 +192,112 @@ module k053936_roz #(
     } state_t;
     state_t st;
 
+    wire [18:0] tag_q[4];
+    logic [4:0] lookup_set;
+    logic [12:0] lookup_tag;
+    // Clear both metadata banks in parallel after reset. Pending prestart is
+    // retained by rline; R_IDLE waits only64clocks before rendering can start.
+    // This fits within the real video consumer's prestart/first-line interval.
+    logic [6:0] tag_clear_at;
+    wire tag_ready=tag_clear_at[6];
+    wire tag_clearing=reset || !tag_ready;
     always_ff @(posedge clk) begin
-        if (blk_wr) tmem[{fill_ent, blk_idx}] <= blk_data;
-        tmem_rd <= tmem[{ent_now, srcx[3:2], srcy[3:0]}];
-        if (st == R_FILLW && blk_ack) attr[fill_ent] <= {d2[7], nib_now};
-        attr_rd <= attr[ent_now];
+        if(reset) tag_clear_at<=7'd0;
+        else if(!tag_ready) tag_clear_at<=tag_clear_at+7'd1;
     end
+    wire tag_write_slot = st == R_FILLW && blk_ack;
+    wire tag_invalidate_slot = st == R_FILL;
+    wire [6:0] tag_write_ent=tag_invalidate_slot ? victim_pending : fill_ent;
+    genvar tb;
+    generate
+    for(tb=0;tb<2;tb=tb+1) begin: tag_banks
+        // Cancellation gates the write strobe, not the address/data of a
+        // disabled write. No tag read is consumed while abandoning a line;
+        // the next R_PIX/R_LOOK launches fresh addresses before comparison.
+        wire write_bank=(tag_write_slot || tag_invalidate_slot) && tag_write_ent[6]==1'(tb);
+        wire [5:0] tag_a=tag_clearing ? (reset ? 6'd0 : tag_clear_at[5:0]) :
+                         write_bank ? tag_write_ent[5:0] : {1'b0,cache_set(ti_now)};
+        wire [5:0] tag_b={1'b1,cache_set(ti_now)};
+        wire [18:0] write_data=!tag_clearing && tag_write_slot ? {1'b1,d2[7],nib_now,ti[17:5]} : 19'd0;
+        // Use the supported physical macro directly. Both read addresses
+        // are captured on clock0; unregistered macro outputs give exactly
+        // one read clock, matching the renderer pipeline. Collision outputs
+        // are unconsumed during clear/invalidate/fill, until fresh reads.
+        pregx_roz_tag_ram tag_mem(.clk(clk),.we(tag_clearing || (!reset && !abandon && write_bank)),
+            .addr_a(tag_a),.addr_b(tag_b),.data(write_data),
+            .q_a(tag_q[2*tb]),.q_b(tag_q[2*tb+1]));
+    end
+    endgenerate
+    always_ff @(posedge clk) begin
+        lookup_set<=cache_set(ti_now);
+        lookup_tag<=ti_now[17:5];
+    end
+    wire [3:0] tag_hit;
+    genvar tw;
+    generate
+    for(tw=0;tw<4;tw=tw+1) begin: tag_compare
+        assign tag_hit[tw]=tag_ready && tag_q[tw][18] && tag_q[tw][12:0]==lookup_tag;
+    end
+    endgenerate
+    wire [1:0] hit_way=tag_hit[0] ? 2'd0 : tag_hit[1] ? 2'd1 : tag_hit[2] ? 2'd2 : 2'd3;
+    wire [6:0] ent_now={hit_way,lookup_set};
+    assign attr_rd=tag_q[hit_way][17:13];
+    wire [4:0] fill_set=cache_set(ti);
+    wire [2:0] victim_tree=replace_tree[fill_set];
+    wire [1:0] victim_way=!tag_q[0][18] ? 2'd0 :
+                          !tag_q[1][18] ? 2'd1 :
+                          !tag_q[2][18] ? 2'd2 :
+                          !tag_q[3][18] ? 2'd3 :
+                          {victim_tree[2],victim_tree[2] ? victim_tree[1] : victim_tree[0]};
 
+    assign cache_we=blk_wr;
+    assign cache_wa={fill_ent,blk_idx};
+    assign cache_wdata=blk_data;
+    assign cache_ra={ent_now,srcx[3:2],srcy[3:0]};
+    // Keep the bank-selection mux separate from nibble/opacity and the shared
+    // line-RAM input mux. Commit a completed pixel one clock later while the
+    // unchanged three-clock renderer starts the next pixel. Capture every
+    // associated control/address at the old commit edge, including MMIO data.
+    logic line_pending, line_visible;
+    logic [15:0] line_word;
+    logic [1:0] line_select;
+    logic [7:0] line_colour;
+    logic [11:0] line_address;
+    always_ff @(posedge clk) begin
+        line_pending<=!reset && !abandon && st==R_CHK && !(roz_enable && !hit);
+        line_word<=tmem_rd;
+        line_select<=pix_sel;
+        line_colour<=colour;
+        line_visible<=roz_enable && !clipped;
+        line_address<=wa;
+    end
+    assign line_we=!reset && !abandon && line_pending;
+    assign line_wa=line_address;
+    assign line_ra=rd_base+12'(px);
+    assign line_wdata=(line_visible && |pen) ? {line_colour,pen} : 12'd0;
+    generate
+    if(EXTERNAL_RAM) begin: shared_storage
+        assign tmem_rd=cache_q;
+        assign rd=line_q;
+    end else begin: local_storage
+        logic [15:0] tmem[NENT*64];
+        logic [11:0] lbuf[NBANK*LB_STRIDE];
+        always_ff @(posedge clk) begin
+            if(cache_we) tmem[cache_wa]<=cache_wdata;
+            tmem_rd<=tmem[cache_ra];
+            if(line_we) lbuf[line_wa]<=line_wdata;
+            rd<=lbuf[line_ra];
+        end
+    end
+    endgenerate
     // ------------------------------------------------------------------ FSM
     logic [LB_AW-1:0] cur_x;
     logic        hit, clipped;
     logic  [1:0] pix_sel;
     logic [31:0] pyx, pyy;
 
-    wire [3:0] pen = (pix_sel == 2'd0) ? tmem_rd[15:12] : (pix_sel == 2'd1) ? tmem_rd[11:8]
-                   : (pix_sel == 2'd2) ? tmem_rd[7:4]   : tmem_rd[3:0];
+    wire [3:0] pen = (line_select == 2'd0) ? line_word[15:12] : (line_select == 2'd1) ? line_word[11:8]
+                   : (line_select == 2'd2) ? line_word[7:4]   : line_word[3:0];
     // palbase occupies bits 7:4 and the attribute's bit 7 adds bit 4; they
     // never collide for this game's base
     wire [7:0] colour = {palbase[3:0], 4'd0} | {3'd0, attr_rd[4], 4'd0} | {4'd0, attr_rd[3:0]};
@@ -205,7 +305,7 @@ module k053936_roz #(
     always_ff @(posedge clk) begin
         if (reset) begin
             st <= R_IDLE; map_req <= 1'b0; blk_req <= 1'b0; unsupported <= 1'b0;
-            valid <= '0; fifo_ptr <= '0;
+            for(int rs=0;rs<32;rs++) replace_tree[rs]<='0;
             rline <= 9'(VIS_H); need <= '0; need_v <= 1'b0; disp <= -10'sd1; rd_base <= '0;
         end else begin
             if (prestart) begin
@@ -220,7 +320,7 @@ module k053936_roz #(
                 st <= R_IDLE; map_req <= 1'b0; blk_req <= 1'b0;
             end else case (st)
                 R_IDLE: begin
-                    if (rline < 9'(VIS_H) && $signed({1'b0, rline}) <= disp + 10'(NBANK - 1)) begin
+                    if (tag_ready && rline < 9'(VIS_H) && $signed({1'b0, rline}) <= disp + 10'(NBANK - 1)) begin
                         st <= R_SETUP;
                         if (ctrl[7][6]) unsupported <= 1'b1;    // "super" mode
                     end
@@ -251,7 +351,8 @@ module k053936_roz #(
                     st   <= R_LOOK;
                 end
                 R_LOOK: begin
-                    hit     <= |match;
+                    hit     <= |tag_hit;
+                    if (|tag_hit) replace_tree[lookup_set] <= touch_way(replace_tree[lookup_set],hit_way);
                     clipped <= clip_en & ((srcx < minx) | (srcx > maxx)
                                         | (srcy < miny) | (srcy > maxy));
                     pix_sel <= srcx[1:0];
@@ -264,7 +365,6 @@ module k053936_roz #(
                         map_req  <= 1'b1;
                         st <= R_M1W;
                     end else begin
-                        lbuf[wa] <= (roz_enable && |pen && !clipped) ? {colour, pen} : 12'd0;
                         wa <= wa + 12'd1;
                         cx <= cx + $unsigned(incxx);
                         cy <= cy + $unsigned(incxy);
@@ -302,20 +402,23 @@ module k053936_roz #(
                 R_M3W: if (map_ack) begin
                     d3 <= map_addr[0] ? map_q[7:0] : map_q[15:8];
                     map_req <= 1'b0;
+                    // ti, tag-valid outputs and replacement state have been
+                    // stable throughout the three map reads. Register the
+                    // victim before the high-fanout metadata write decoder.
+                    // Keep fill_ent's original R_FILL update: late words from
+                    // an abandoned block must not target the next victim early.
+                    victim_pending <= {victim_way,fill_set};
                     st <= R_FILL;
                 end
                 R_FILL: begin
-                    fill_ent <= fifo_ptr;
-                    valid[fifo_ptr] <= 1'b0;
+                    fill_ent <= victim_pending;
                     blk_addr <= {2'd0, d2[5:0], d3};
                     blk_req  <= 1'b1;
                     st <= R_FILLW;
                 end
                 R_FILLW: if (blk_ack) begin
                     blk_req <= 1'b0;
-                    tag[fill_ent]   <= ti;
-                    valid[fill_ent] <= 1'b1;
-                    fifo_ptr <= fifo_ptr + 7'd1;
+                    replace_tree[fill_ent[4:0]] <= touch_way(replace_tree[fill_ent[4:0]],fill_ent[6:5]);
                     st <= R_PIX;                       // now a hit
                 end
                 default: st <= R_IDLE;
@@ -352,4 +455,32 @@ module k053936_roz #(
     wire unused = ^{d2[6], ctrl[8], ctrl[9], ctrl[10], ctrl[11], ctrl[12], ctrl[13], ctrl[14], ctrl[15],
                     clip[1][15:9], clip[1][7:0], cx[31:29], cx[15:0], cy[31:29], cy[15:0]};
     /* verilator lint_on UNUSEDSIGNAL */
+endmodule
+
+// Intel M10K true-dual-port metadata storage. Quartus supplies the synthesis
+// primitive; functional tests compile the pinned installed altera_mf model.
+module pregx_roz_tag_ram (
+    input wire clk,we,input wire[5:0]addr_a,addr_b,input wire[18:0]data,
+    output wire[18:0]q_a,q_b
+);
+    altsyncram #(
+        .operation_mode("BIDIR_DUAL_PORT"),.intended_device_family("Cyclone V"),
+        .ram_block_type("M10K"),.lpm_type("altsyncram"),
+        .width_a(19),.widthad_a(6),.numwords_a(64),.width_byteena_a(1),
+        .width_b(19),.widthad_b(6),.numwords_b(64),.width_byteena_b(1),
+        .address_reg_b("CLOCK0"),.rdcontrol_reg_b("CLOCK0"),
+        .indata_reg_b("CLOCK0"),.wrcontrol_wraddress_reg_b("CLOCK0"),.byteena_reg_b("CLOCK0"),
+        .outdata_reg_a("UNREGISTERED"),.outdata_reg_b("UNREGISTERED"),
+        .clock_enable_input_a("BYPASS"),.clock_enable_input_b("BYPASS"),
+        .clock_enable_output_a("BYPASS"),.clock_enable_output_b("BYPASS"),
+        .read_during_write_mode_port_a("NEW_DATA_NO_NBE_READ"),
+        .read_during_write_mode_port_b("NEW_DATA_NO_NBE_READ"),
+        .read_during_write_mode_mixed_ports("DONT_CARE"),
+        .power_up_uninitialized("TRUE")
+    ) ram(.clock0(clk),.clock1(),.clocken0(1'b1),.clocken1(1'b1),
+        .clocken2(1'b1),.clocken3(1'b1),.aclr0(1'b0),.aclr1(1'b0),
+        .address_a(addr_a),.address_b(addr_b),.addressstall_a(1'b0),.addressstall_b(1'b0),
+        .wren_a(we),.wren_b(1'b0),.rden_a(1'b1),.rden_b(1'b1),
+        .data_a(data),.data_b(19'd0),.byteena_a(1'b1),.byteena_b(1'b1),
+        .q_a(q_a),.q_b(q_b),.eccstatus());
 endmodule

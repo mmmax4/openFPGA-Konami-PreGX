@@ -5,11 +5,12 @@
 module pregx_inputs (
     input wire mystic,
     input wire violent,
+    input wire metam,
     input wire [7:0] p1_keys,p2_keys,p3_keys,p4_keys,
     input wire [3:0] p1_dirs,p2_dirs,p3_dirs,p4_dirs,
     input wire test_manual,
     input wire [3:0] test_select,service_select,
-    input wire [8:0] dips, // bit0 GaiaMono,1 GaiaFlip,2 MysticIndependent,3 Mystic4players,4 MysticMono
+    input wire [12:0] dips, // bit0 GaiaMono,1 GaiaFlip,2 MysticIndependent,3 Mystic4players,4 MysticMono
     output wire [15:0] in0_p1,
     output wire [7:0] in1,p2,
     output wire [15:0] mystic_p12,mystic_p34,
@@ -22,10 +23,10 @@ module pregx_inputs (
     function automatic [7:0] player(input [7:0] keys,input [3:0] dirs);
         return ~{keys[7],keys[5],keys[1]|keys[2],keys[0]|keys[3],dirs};
     endfunction
-    assign mystic_p12=violent ? {player(p3_keys,p3_dirs),in0_p1[7:0]} : {p2,in0_p1[7:0]};
-    assign mystic_p34=violent ? {8'hff,p2} : {player(p4_keys,p4_dirs),player(p3_keys,p3_dirs)};
-    assign mystic_in0=violent ? {1'b1,2'b11,in0_p1[12],1'b1,~p3_keys[6],in0_p1[9],in0_p1[8]} : {4'hf,~p4_keys[6],~p3_keys[6],in0_p1[9],in0_p1[8]};
+    assign mystic_p12=(violent || metam) ? {player(p3_keys,p3_dirs),in0_p1[7:0]} : {p2,in0_p1[7:0]};
+    assign mystic_p34=metam ? {player(p4_keys,p4_dirs),p2} : violent ? {8'hff,p2} : {player(p4_keys,p4_dirs),player(p3_keys,p3_dirs)};
+    assign mystic_in0=metam ? {2'b11,1'b1,in0_p1[12],~p4_keys[6],~p3_keys[6],in0_p1[9],in0_p1[8]} : violent ? {1'b1,2'b11,in0_p1[12],1'b1,~p3_keys[6],in0_p1[9],in0_p1[8]} : {4'hf,~p4_keys[6],~p3_keys[6],in0_p1[9],in0_p1[8]};
     // Bit3 must stay0 (the original game waits if it is1). Main supplies DO/READY.
-    assign in1=violent ? {~dips[8],~dips[7],~dips[6],dips[5],in0_p1[11],1'b0,2'b11} : mystic ? {1'b1,~dips[3],~dips[2],dips[4],1'b0,in0_p1[11],2'b11} : gaia_in1;
+    assign in1=metam ? {~dips[12],~dips[11],~dips[10],dips[9],in0_p1[11],1'b0,2'b11} : violent ? {~dips[8],~dips[7],~dips[6],dips[5],in0_p1[11],1'b0,2'b11} : mystic ? {1'b1,~dips[3],~dips[2],dips[4],1'b0,in0_p1[11],2'b11} : gaia_in1;
 endmodule
 `default_nettype wire

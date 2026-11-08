@@ -919,7 +919,7 @@ module core_top
     pregx_clock_tree core_pll
     (
         .refclk   ( clk_74a ),
-        .mystic   ( mystic_profile ),
+        .mystic   ( mystic_profile || metam_profile ),
         .rst      ( 0       ),
         .outclk_0 ( clk_sys       ),
         .outclk_1 ( clk_vid       ),
@@ -950,7 +950,7 @@ module core_top
     wire        mem_ready;
     wire host_loaded_s;
     synch_3 sync_loaded(nv_loaded, host_loaded_s, clk_sys);
-    wire violent_profile, mystic_profile, rom_identified, rom_valid, rom_begin;
+    wire violent_profile, mystic_profile, metam_profile, rom_identified, rom_valid, rom_begin;
     // APF family game changes reload the complete RBF. Clock selection is made
     // once the original ROM prefix is known, while machine/video remain reset.
     logic [7:0] clock_settle = 8'd0;
@@ -966,6 +966,8 @@ module core_top
             profile_clock_ready <= &clock_settle;
         end
     end
+    // All four private-candidate profiles now have their board consumers connected.
+    // Physical Metamorphic behavior remains pending the private Pocket test.
     wire loaded_s = host_loaded_s && rom_valid && profile_clock_ready &&
                     ioctl_drained && nv_dl_drained && mem_ready;
     // Ordered end markers retire all host byte strobes before memory testing.
@@ -989,7 +991,10 @@ module core_top
         if (!loaded_s || reset_sw_s || test_start) initial_test_done <= 1'b0;
         else if (test_done) initial_test_done <= 1'b1;
     end
-    wire        ga_reset  = reset_sw_s | ~loaded_s | ~mem_ready | test_hold | test_run | ~initial_test_done;
+    // test_hold rises on the same accepted start edge as mem_test.run and
+    // clears only after done (which clears run). The redundant run term fed
+    // the complete reset -> renderer request -> test/core arbiter path.
+    wire        ga_reset  = reset_sw_s | ~loaded_s | ~mem_ready | test_hold | ~initial_test_done;
 
     //! Family ROM slot1: exact original Gaia or compact Mystic memory image.
     wire        ioctl_isROM = ioctl_download && ioctl_index == 16'h1;
@@ -999,7 +1004,7 @@ module core_top
 
     pregx_rom_profile rom_profile (
         .clk(clk_sys),.dl_we(dl_we),.dl_addr(dl_addr),.dl_data(dl_data),
-        .violent(violent_profile), .mystic(mystic_profile),.identified(rom_identified),.valid(rom_valid),.begin_image(rom_begin)
+        .violent(violent_profile), .mystic(mystic_profile),.metam(metam_profile),.identified(rom_identified),.valid(rom_valid),.begin_image(rom_begin)
     );
 
     //! Controls, active low as the board reads them (docs/hardware.md section 8):
@@ -1013,7 +1018,7 @@ module core_top
     wire [15:0] mystic_p12,mystic_p34;
     wire [7:0] mystic_in0;
     pregx_inputs cabinet (
-        .violent(violent_profile), .mystic(mystic_profile),
+        .metam(metam_profile),.violent(violent_profile), .mystic(mystic_profile),
         .p1_keys({p1_start,p1_select,p1_btn_r1,p1_btn_l1,p1_btn_y,p1_btn_x,p1_btn_b,p1_btn_a}),
         .p2_keys({p2_start,p2_select,p2_btn_r1,p2_btn_l1,p2_btn_y,p2_btn_x,p2_btn_b,p2_btn_a}),
         .p1_dirs({p1_down|j1_down,p1_up|j1_up,p1_right|j1_right,p1_left|j1_left}),
@@ -1024,7 +1029,7 @@ module core_top
         .p4_dirs({p4_down|j4_down,p4_up|j4_up,p4_right|j4_right,p4_left|j4_left}),
         .test_manual(mod_sw1[0] | svc_sw),
         .test_select(mod_sw2[3:0]), .service_select(mod_sw2[7:4]),
-        .dips({dip_sw1[0],dip_sw0}), .in0_p1(in0_p1), .in1(in1), .p2(p2),
+        .dips({dip_sw1[4:0],dip_sw0}), .in0_p1(in0_p1), .in1(in1), .p2(p2),
         .mystic_p12(mystic_p12),.mystic_p34(mystic_p34),.mystic_in0(mystic_in0)
     );
 
@@ -1036,6 +1041,8 @@ module core_top
     wire        ga_sram_slow  = mod_sw0[7];   // SRAM reads captured one clock later
     wire        ga_sram_slow_wr = mod_sw1[7]; // SRAM writes stretched
 
+    wire lvc_req,lvc_ack,road_req,road_we,road_ack;
+    wire[14:0]lvc_addr;wire[63:0]lvc_q;wire[13:0]road_addr;wire[1:0]road_be;wire[15:0]road_wdata,road_q;
     // the core's memory ports
     wire        prog_req, prog_ack, tile_req, tile_ack, map_req, map_ack, spr_req, spr_ack;
     wire        blk_req, blk_wr, blk_ack; wire [15:0] blk_addr, blk_data; wire [5:0] blk_idx; wire [3:0] roz_lead;
@@ -1057,6 +1064,8 @@ module core_top
     wire [7:0] tile_fifth;
     wire [15:0] spr_fifth;
     gaia_mem u_mem (
+        .metam(metam_profile),.lvc_req(lvc_req),.lvc_addr(lvc_addr),.lvc_ack(lvc_ack),.lvc_q(lvc_q),
+        .road_req(road_req),.road_we(road_we),.road_addr(road_addr),.road_be(road_be),.road_wdata(road_wdata),.road_ack(road_ack),.road_q(road_q),
         .violent(violent_profile), .mystic(mystic_profile), .test_mask(memory_test_mask), .tile_fifth(tile_fifth), .spr_fifth(spr_fifth),
         .clk(clk_sys), .clk_sdram(clk_sdram), .init(mem_init), .ready(mem_ready),
         .rd_late(ga_rd_late), .burst_slow(ga_burst_slow), .ps_slow(ga_ps_slow), .sram_slow(ga_sram_slow), .sram_slow_wr(ga_sram_slow_wr),
@@ -1100,6 +1109,8 @@ module core_top
     localparam bit INTRO_COMPAT_BUILD=1'b0;
 `endif
     gaia_core #(.HEXDIR("../rtl/data"),.MYSTIC_INTRO_COMPAT(INTRO_COMPAT_BUILD)) ga (
+        .metam(metam_profile),.lvc_req(lvc_req),.lvc_addr(lvc_addr),.lvc_ack(lvc_ack),.lvc_q(lvc_q),
+        .road_req(road_req),.road_we(road_we),.road_addr(road_addr),.road_be(road_be),.road_wdata(road_wdata),.road_ack(road_ack),.road_q(road_q),
         .violent(violent_profile), .mystic(mystic_profile), .mystic_p12(mystic_p12), .mystic_p34(mystic_p34), .mystic_in0(mystic_in0),
         .tile_fifth(tile_fifth), .spr_fifth(spr_fifth),
         .clk(clk_sys), .reset(ga_reset), .pause(pause_core), .pix_sync(pix_sync), .vid_reset(~pll_locked_sys | ~profile_clock_ready),
@@ -1123,8 +1134,8 @@ module core_top
 
     //! Preserve Gaia modes0/1 and Mystic modes2/3; Mystic Fill screen uses4.
     wire [1:0] aspect_sel = mod_sw0[2:1];
-    assign video_preset = violent_profile ? (aspect_sel==2'd2 ? 3'd7 : aspect_sel==2'd1 ? 3'd6 : 3'd5) : (mystic_profile && aspect_sel == 2'd2) ? 3'd4
-                         : {1'b0,mystic_profile,(aspect_sel == 2'd1)};
+    assign video_preset = violent_profile ? (aspect_sel==2'd2 ? 3'd7 : aspect_sel==2'd1 ? 3'd6 : 3'd5) : ((mystic_profile || metam_profile) && aspect_sel == 2'd2) ? 3'd4
+                         : {1'b0,(mystic_profile || metam_profile),(aspect_sel == 2'd1)};
 
     //! ------------------------------------------------------------------
     //! Diagnostic overlay (METHODOLOGY section 4), on the modifier word's bit
@@ -1187,7 +1198,7 @@ module core_top
     dbg_overlay ovl (
         .clk(clk_sys), .cen_pix(ga_cen_pix), .enable(ovl_en), .de(ga_de), .vsync(ga_vs),
         .r_in(ga_rgb[23:16]), .g_in(ga_rgb[15:8]), .b_in(ga_rgb[7:0]),
-        .status(ovl_status), .mystic(mystic_profile), .r_out(ovl_r), .g_out(ovl_g), .b_out(ovl_b)
+        .status(ovl_status), .mystic(mystic_profile || metam_profile), .r_out(ovl_r), .g_out(ovl_g), .b_out(ovl_b)
     );
 
     //! ------------------------------------------------------------------

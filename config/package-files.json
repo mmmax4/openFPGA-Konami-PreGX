@@ -1,5 +1,6 @@
 [
   "Assets/pregx/mmmax4.pregx/Gaiapolis (ver EAF).json",
+  "Assets/pregx/mmmax4.pregx/Metamorphic Force (ver EAA).json",
   "Assets/pregx/mmmax4.pregx/Mystic Warriors (ver EAA).json",
   "Assets/pregx/mmmax4.pregx/Violent Storm (ver EAC).json",
   "Cores/mmmax4.pregx/audio.json",
@@ -14,6 +15,7 @@
   "Platforms/_images/pregx.bin",
   "Platforms/pregx.json",
   "Presets/mmmax4.pregx/Interact/pregx/mmmax4.pregx/Gaiapolis (ver EAF).json",
+  "Presets/mmmax4.pregx/Interact/pregx/mmmax4.pregx/Metamorphic Force (ver EAA).json",
   "Presets/mmmax4.pregx/Interact/pregx/mmmax4.pregx/Mystic Warriors (ver EAA).json",
   "Presets/mmmax4.pregx/Interact/pregx/mmmax4.pregx/Violent Storm (ver EAC).json"
 ]

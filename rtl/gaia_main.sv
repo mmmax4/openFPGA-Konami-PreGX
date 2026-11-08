@@ -38,6 +38,16 @@ module gaia_main #(
     input  logic        pause,
     input  logic        violent,       // EAC profile, stable through reset/run
     input  logic        mystic,        // stable profile from reset to unload
+    input  logic        metam,
+    input  logic        lvc_cpu_stall,
+    output logic        lvc_req,lvc_we,
+    output logic[12:0]   lvc_addr,
+    output logic[1:0]    lvc_be,
+    output logic[15:0]   lvc_wdata,
+    input  logic        lvc_ack,input logic[15:0]lvc_q,
+    output logic[7:0]    k50regs[8],
+    output logic        lvc_rom_req,output logic[14:0]lvc_rom_addr,
+    input logic         lvc_rom_ack,input logic[63:0]lvc_rom_q,
     input  logic        raster_start,
     input  logic [8:0]  raster_line,
     input  logic [15:0] mystic_p12, mystic_p34,
@@ -142,10 +152,10 @@ module gaia_main #(
 );
     // Runtime profile is held through the full reset/reload window. Track it
     // continuously, including reset, and keep the high-fanout decoders local.
-    (* preserve, dont_merge *) logic board_mystic, board_violent, board_readback;
+    (* preserve, dont_merge *) logic board_mystic, board_violent, board_metam, board_rng, board_readback;
     always_ff @(posedge clk) begin
-        board_mystic <= mystic; board_violent <= violent;
-        board_readback <= mystic || violent;
+        board_mystic <= mystic; board_violent <= violent;board_metam<=metam;board_rng<=violent||metam;
+        board_readback <= mystic || violent || metam;
     end
 
     logic trom_req_g, srom_req_g;
@@ -164,7 +174,7 @@ module gaia_main #(
     assign srom_req = ms_req | srom_req_g;
     assign srom_addr = board_readback ? ms_addr : srom_addr_g;
     mystic_rom_readback u_rb (
-        .clk(clk), .reset(reset), .violent(board_violent), .req(rb_req), .sprite(rb_sprite),
+        .clk(clk), .reset(reset), .violent(board_violent), .metam(board_metam), .req(rb_req), .sprite(rb_sprite),
         .offset(A[13:1]), .tile_bank({k56regs[27],k56regs[26]}),
         .tile_plane5(k56regsb[2][3]), .sprite_word({k46regs[6],k46regs[7],k46regs[4]}),
         .ack(rb_ack), .data(rb_data), .out_of_range(dbg_rb_oob),
@@ -249,14 +259,16 @@ module gaia_main #(
     wire [3:0] mmio_k56b;
     wire mmio_k000, mmio_local_other, mmio_vram;
     wire [26:0] mmio_board;
+    wire sel_lvc_ram,sel_lvc_reg,sel_lvc_rom;
+    logic[2:0]lvc_rom_sel;
     // Destination and payload are sampled from the SAME raw master bus.
     // CPU step_gap and the engine S_A1/S_A2 interval already settle that bus.
     // This moves decode before A, without adding a write/ACK cycle.
     pregx_mmio_targets mmio_targets(
-        .clk(clk),.mystic(board_mystic),.violent(board_violent),.a(shared_a),
+        .clk(clk),.mystic(board_mystic),.violent(board_violent),.metam(board_metam),.a(shared_a),
         .k55(mmio_k55),.k56(mmio_k56),.k56b(mmio_k56b),
         .k000(mmio_k000),.local_other(mmio_local_other),.vram(mmio_vram),
-        .board(mmio_board)
+        .board(mmio_board),.lvc_ram(sel_lvc_ram),.lvc_reg(sel_lvc_reg),.lvc_rom(sel_lvc_rom)
     );
     always_ff @(posedge clk) begin
         A <= shared_a;
@@ -291,7 +303,7 @@ module gaia_main #(
     wire sel_rb1    = mmio_board[22];                  // a00000-a7ffff
     wire sel_rb2    = mmio_board[23];                     // c00000-dfffff
     /* verilator lint_off UNUSEDSIGNAL */
-    wire sel_wdog   = board_violent ? (A[23:1] == 23'h13e000) : (board_mystic ? (A[23:1] == 23'h249000) : (A[23:1]  == 23'h700000));                 // e00000: decoded, deliberately ignored
+    wire sel_wdog   = board_rng ? (A[23:1] == 23'h13e000) : (board_mystic ? (A[23:1] == 23'h249000) : (A[23:1]  == 23'h700000));                 // e00000: decoded, deliberately ignored
     /* verilator lint_on UNUSEDSIGNAL */
 
     wire sel_p12 = mmio_board[24];
@@ -355,8 +367,8 @@ module gaia_main #(
     // MAME's test is (word offset & 0x78) == 0, i.e. A[7:4] all clear --
     // four bits, not three. With A[7] left out, two CPU addresses aliased
     // onto one chip word and the self-test marked both sprite-window RAMs bad.
-    wire        spr_hit  = board_violent ? (A[15:12] == 4'd0) : (A[7:4] == 4'd0);
-    wire [10:0] spr_word = board_violent ? A[11:1] : {A[15:8], A[3:1]};
+    wire        spr_hit  = board_rng ? (A[15:12] == 4'd0) : (A[7:4] == 4'd0);
+    wire [10:0] spr_word = board_rng ? A[11:1] : {A[15:8], A[3:1]};
 
     always_ff @(posedge clk) begin
         wram_q      <= wram[A[15:1]];
@@ -371,7 +383,7 @@ module gaia_main #(
     // ------------------------------------------------- bus sequencer
     typedef enum logic [3:0] {
         B_IDLE, B_RAM_RD, B_WAIT_ROM, B_WAIT_MAP0, B_WAIT_MAP0B, B_WAIT_MAP1, B_WAIT_CHR,
-        B_WAIT_TROM, B_WAIT_SROM, B_WAIT_VRAM, B_WAIT_VRAMW, B_WAIT_MRB
+        B_WAIT_TROM, B_WAIT_SROM, B_WAIT_VRAM, B_WAIT_VRAMW, B_WAIT_MRB, B_WAIT_LVC, B_WAIT_LVCW, B_WAIT_LVCROM
     } bst_t;
     bst_t bst;
     logic [5:0]  tok;
@@ -381,7 +393,7 @@ module gaia_main #(
     logic [7:0]  rb_hi;
     logic [15:0] in1_word;
 
-    assign ipl_n = board_violent ? (irq6_pend ? 3'b001 : irq5_pend ? 3'b010 : 3'b111) : board_mystic ? (irq4_pend ? 3'b011 : irq2_pend ? 3'b101 : 3'b111) :
+    assign ipl_n = board_rng ? (irq6_pend ? 3'b001 : irq5_pend ? 3'b010 : 3'b111) : board_mystic ? (irq4_pend ? 3'b011 : irq2_pend ? 3'b101 : 3'b111) :
                            (irq5_pend ? 3'b010 : 3'b111);    // level 5
 
     // K056832 readback: 32-bit group index = bank * 2048 + (offset >> 1).
@@ -402,7 +414,7 @@ module gaia_main #(
     assign dbg_irq4 = irq4_pend;
     // MAME's dddeeprom_r: an access that includes the high byte returns IN1
     // there with a zero low byte; only a low-byte access reads P2
-    assign in1_word = (board_mystic || board_violent) ? (lds ? {8'd0,in1[7:2],eep_ready,eep_do} : 16'd0) :
+    assign in1_word = board_readback ? (lds ? {8'd0,in1[7:2],eep_ready,eep_do} : 16'd0) :
                                    {in1[7:2],eep_ready,eep_do,uds ? 8'h00 : p2};
 
     // Sources are mutually exclusive for every address/profile combination
@@ -416,16 +428,17 @@ module gaia_main #(
                | ({16{sel_rozct}}  & rozctrl[A[4:1]])
                | ({16{sel_k550}}   & k550_q)
                | ({16{sel_k252}}   & {8'h00, k252[A[4:1]]})
-               | ({16{sel_in0}}    & ((board_mystic || board_violent) ? {8'd0,mystic_in0} : in0_p1))
+               | ({16{sel_in0}}    & (board_readback ? {8'd0,mystic_in0} : in0_p1))
                | ({16{sel_p12}}    & mystic_p12)
                | ({16{sel_p34}}    & mystic_p34)
                | ({16{sel_in1}}    & in1_word)
-               | ({16{sel_k321}}   & ((board_mystic || board_violent) ? (lds ? {8'd0,snd_rdata} : 16'd0) : {snd_rdata,8'h00}))
-               | ({16{sel_k000}}   & {8'h00, col_rdata});
+               | ({16{sel_k321}}   & (board_readback ? (lds ? {8'd0,snd_rdata} : 16'd0) : {snd_rdata,8'h00}))
+               | ({16{sel_k000}}   & {8'h00, col_rdata})
+               | ({16{sel_lvc_reg}} & {8'd0,k50regs[A[3:1]]});
         // sel_vram answers zero here, as before (external linescroll mode).
     end
 
-    wire cpu_step = !pause && !k550_owned && !k550_owned_d && tok >= 6'(step_cost) && !clkena && step_gap==3'd0;
+    wire cpu_step = (!board_metam || !lvc_cpu_stall) && !pause && !k550_owned && !k550_owned_d && tok >= 6'(step_cost) && !clkena && step_gap==3'd0;
     wire cpu_wr = bst==B_IDLE && cpu_step && fc!=3'b111 && !(busstate==2'b01 || skipFetch) && is_wr;
     wire cpu_local_read = bst==B_IDLE && cpu_step && fc!=3'b111 && !(busstate==2'b01 || skipFetch) && !is_wr;
     wire engine_wr = board_violent && k550_go && k550_we;
@@ -444,6 +457,7 @@ module gaia_main #(
         step_gap <= {step_gap[1:0], clkena};
 
         if (reset) begin
+            lvc_req<=1'b0;lvc_we<=1'b0;lvc_rom_req<=1'b0;
             irq6_pend <= 1'b0; e_rom_pend<=1'b0; e_vr_pend<=1'b0; e_vw_pend<=1'b0;
             bst <= B_IDLE; tok <= '0; step_gap <= '0; irq5_pend <= 1'b0; vc_req <= 1'b0;
             irq2_pend <= 1'b0; irq4_pend <= 1'b0; rb_req <= 1'b0; rb_sprite <= 1'b0;
@@ -455,7 +469,7 @@ module gaia_main #(
             for (int i = 0; i < 48; i++) k55regs[i] <= '0;
             for (int i = 0; i < 16; i++) begin k38regs[i] <= '0; k252[i] <= '0; end
             for (int i = 0; i < 16; i++) rozctrl[i] <= '0;
-            for (int i = 0; i < 8;  i++) begin k46regs[i] <= '0; k47regs[i] <= '0; end
+            for (int i = 0; i < 8;  i++) begin k46regs[i] <= '0; k47regs[i] <= '0;k50regs[i]<='0; end
             rozclip[0] <= '0; rozclip[1] <= '0;
         end else begin
             if (cen_16m && !pause && tok < 6'd48) tok <= tok + 6'(STEP_GAIN);
@@ -464,7 +478,7 @@ module gaia_main #(
             // interrupt-acknowledge cycle -- a *read* with FC = 111, which
             // TG68K performs even with IPL_autovector (MAME's HOLD_LINE).
             // Nothing on the board answers it; the vector is internal.
-            if (vblank_rise && !pause && !board_mystic && !board_violent) irq5_pend <= 1'b1;
+            if (vblank_rise && !pause && !board_mystic && !board_violent && !board_metam) irq5_pend <= 1'b1;
 
             case (bst)
                 B_IDLE: begin
@@ -476,8 +490,8 @@ module gaia_main #(
                         if (fc == 3'b111) begin
                             // interrupt acknowledge: the IRQ drops, the step completes
                             clkena <= 1'b1; tok <= tok - 6'(STEP_COST_BUS); dbg_step <= 1'b1;
-                            if (!board_violent || A[3:1]==3'd5) irq5_pend <= 1'b0;
-                            if (board_violent && A[3:1]==3'd6) irq6_pend<=1'b0;
+                            if (!board_rng || A[3:1]==3'd5) irq5_pend <= 1'b0;
+                            if (board_rng && A[3:1]==3'd6) irq6_pend<=1'b0;
                             if (board_mystic && A[3:1] == 3'd4) irq4_pend <= 1'b0;
                             if (board_mystic && A[3:1] == 3'd2) irq2_pend <= 1'b0;
                         end else if (busstate == 2'b01 || skipFetch) begin
@@ -491,6 +505,15 @@ module gaia_main #(
                             tok <= tok - 6'(STEP_COST_BUS);
                             if (sel_rom) begin
                                 rom_addr <= A[22:1]; rom_req <= 1'b1; bst <= B_WAIT_ROM;
+                            end else if(sel_lvc_ram)begin
+                                lvc_req<=1'b1;lvc_we<=1'b0;lvc_addr<=A[13:1];
+                                lvc_be<={uds,lds};lvc_wdata<=wdat;bst<=B_WAIT_LVC;
+                            end else if(sel_lvc_rom)begin
+                                lvc_rom_sel<=A[4:2];
+                                lvc_rom_addr<={k50regs[7][6:0],A[12:5]};
+                                // reg6 addresses beyond the original256KiB device.
+                                lvc_rom_req<=k50regs[6]==8'd0;
+                                bst<=k50regs[6]==8'd0 ? B_WAIT_LVCROM : B_RAM_RD;
                             end else if (sel_vram && !vram_ext) begin
                                 vc_req <= 1'b1; vc_we <= 1'b0; vc_addr <= vram_cpu_addr; bst <= B_WAIT_VRAM;
                             end else if (sel_rb0) begin
@@ -502,7 +525,7 @@ module gaia_main #(
                             end else if (sel_rb2) begin
                                 // gfx3[(bank * 0x100000 + off) / 2] << 8
                                 chr_addr <= {roz_rombank, A[20:2]}; chr_req <= 1'b1; bst <= B_WAIT_CHR;
-                            end else if ((board_mystic || board_violent) && (sel_tmrb || sel_sprrb)) begin
+                            end else if (board_readback && (sel_tmrb || sel_sprrb)) begin
                                 rb_req <= 1'b1; rb_sprite <= sel_sprrb; bst <= B_WAIT_MRB;
                             end else if (sel_tmrb) begin
                                 if (tile_plane5) begin
@@ -514,7 +537,7 @@ module gaia_main #(
                                 srom_addr_g <= spr_widx[21:2]; srom_sel <= spr_widx[1:0];
                                 srom_req_g <= 1'b1; bst <= B_WAIT_SROM;
                             end else begin
-                                if (sel_k321 && (!(board_mystic || board_violent) || lds)) snd_rd <= 1'b1;
+                                if (sel_k321 && (!board_readback || lds)) snd_rd <= 1'b1;
                                 if (sel_k000) col_rd <= 1'b1;
                                 bst <= B_RAM_RD;
                             end
@@ -523,6 +546,16 @@ module gaia_main #(
                 end
 
                 // block RAMs and latches answer one cycle after the live address
+                B_WAIT_LVC: if(lvc_ack)begin
+                    lvc_req<=1'b0;data_in<=lvc_q;clkena<=1'b1;dbg_step<=1'b1;bst<=B_IDLE;
+                end
+                B_WAIT_LVCW: if(lvc_ack)begin
+                    lvc_req<=1'b0;clkena<=1'b1;dbg_step<=1'b1;bst<=B_IDLE;
+                end
+                B_WAIT_LVCROM: if(lvc_rom_ack)begin
+                    lvc_rom_req<=1'b0;data_in<={8'd0,lvc_rom_q[63-{lvc_rom_sel,3'b000}-:8]};
+                    clkena<=1'b1;dbg_step<=1'b1;bst<=B_IDLE;
+                end
                 B_RAM_RD: begin
                     data_in <= rd_mux; clkena <= 1'b1; dbg_step <= 1'b1; bst <= B_IDLE;
                 end
@@ -610,7 +643,13 @@ module gaia_main #(
                     if (mmio_k56b[i])
                         k56regsb[i] <= {uds ? wdat[15:8] : k56regsb[i][15:8],
                                        lds ? wdat[7:0] : k56regsb[i][7:0]};
-                            if (sel_wram) begin
+                            if(sel_lvc_ram)begin
+                                lvc_req<=1'b1;lvc_we<=1'b1;lvc_addr<=A[13:1];
+                                lvc_be<={uds,lds};lvc_wdata<=wdat;
+                                clkena<=1'b0;dbg_step<=1'b0;bst<=B_WAIT_LVCW;
+                            end else if(sel_lvc_reg)begin
+                                if(lds)k50regs[A[3:1]]<=wdat[7:0];
+                            end else if (sel_wram) begin
                                 if (uds) wram[A[15:1]][1] <= wdat[15:8];
                                 if (lds) wram[A[15:1]][0] <= wdat[7:0];
                             end else if (sel_vram) begin
@@ -655,9 +694,9 @@ module gaia_main #(
                                 if (lds) k252[A[4:1]] <= wdat[7:0];
                             end else if (sel_k321) begin
                                 // umask16(0xff00): the high byte
-                                if ((board_mystic || board_violent) ? lds : uds) begin
+                                if (board_readback ? lds : uds) begin
                                     snd_wr <= 1'b1; snd_off <= A[4:1];
-                                    snd_wdata <= (board_mystic || board_violent) ? wdat[7:0] : wdat[15:8];
+                                    snd_wdata <= board_readback ? wdat[7:0] : wdat[15:8];
                                 end
                             end else if (sel_k338) begin
                                 k38regs[A[4:1]] <= {uds ? wdat[15:8] : k38regs[A[4:1]][15:8],
@@ -674,9 +713,9 @@ module gaia_main #(
                                 snd_irq <= 1'b1;
                             end
             end
-            if(board_violent && raster_start && !pause) begin
-                if(raster_line==9'd24) irq6_pend<=1'b1;
-                if(raster_line==9'd248 && k46regs[5][4]) irq5_pend<=1'b1;
+            if(board_rng && raster_start && !pause) begin
+                if(raster_line==(board_metam ? 9'd26 : 9'd24)) irq6_pend<=1'b1;
+                if(raster_line==(board_metam ? 9'd250 : 9'd248) && k46regs[5][4]) irq5_pend<=1'b1;
             end
             if (board_mystic && raster_start && !pause && k56regsb[3][0]) begin
                 if (raster_line == 9'd240) irq2_pend <= 1'b1;
@@ -695,62 +734,64 @@ endmodule
 // Reset is deliberately not a target input: the consumer's reset dominates
 // all commits while this stage continues to track the selected master bus.
 module pregx_mmio_targets (
-    input wire clk,mystic,violent,
+    input wire clk,mystic,violent,metam,
     input wire [23:1] a,
     output wire [47:0] k55,
     output wire [31:0] k56,
     output wire [3:0] k56b,
     output wire k000,local_other,vram,
-    output wire [26:0] board
+    output wire [26:0] board,
+    output logic lvc_ram,lvc_reg,lvc_rom
 );
     // The complete static board selection travels with the same raw bus
     // capture as A/lanes/data. Consumer priority and live controls stay local.
     wire [26:0] raw_board;
+    wire rng_map=violent||metam;
     (* preserve, dont_merge *) logic [26:0] board_r;
     assign board=board_r;
-    assign raw_board[0] = violent ? (a[23:21] == 3'd0) : (mystic ? (a[23:21] == 3'd0) : (a[23:20] <= 4'h2));
-    assign raw_board[1] = violent ? (a[23:16] == 8'h21) : ((a[23:16] == 8'h40));
-    assign raw_board[2] = violent ? (a[23:15] == 9'h060) : (mystic ? (a[23:14] == 10'h180) : (a[23:14] == 10'b0100_0001_00));
-    assign raw_board[3] = violent ? (a[23:13] == 11'h198) : (mystic ? (a[23:13] == 11'h380) : (a[23:13] == 11'b0100_0010_000));
-    assign raw_board[4] = violent ? (a[23:3] == 21'h048000) : (mystic ? (a[23:3] == 21'h090800) : (a[23:3]  == 21'h086000));
-    assign raw_board[5] = violent ? (a[23:13] == 11'h188) : (mystic ? (a[23:14] == 10'h1a0) : (a[23:13] == 11'b0100_0100_000));
-    assign raw_board[6] = violent ? (a[23:4] == 20'h24400) : (mystic ? (a[23:4] == 20'h48200) : (a[23:4]  == 20'h45000));
-    assign raw_board[7] = violent ? (a[23:4] == 20'h24401) : (mystic ? (a[23:4] == 20'h48201) : (a[23:4]  == 20'h45001));
-    assign raw_board[8] = !violent && !mystic && (a[23:5]  == 19'h23000);
-    assign raw_board[9] = !violent && !mystic && (a[23:12] == 12'h470);
-    assign raw_board[10] = !violent && !mystic && (a[23:2]  == 22'h121000);
-    assign raw_board[11] = violent ? (a[23:5] == 19'h13000) : (mystic ? (a[23:5] == 19'h24e00) : (a[23:5]  == 19'h24300));
-    assign raw_board[12] = violent ? (a[23:5] == 19'h13400) : (mystic ? (a[23:5] == 19'h24c00) : (a[23:5]  == 19'h24500));
-    assign raw_board[13] = violent ? (a[23:5] == 19'h12a00) : (mystic ? (a[23:5] == 19'h24500) : (a[23:5]  == 19'h24600));
-    assign raw_board[14] = violent ? (a[23:1] == 23'h13c000) : (mystic ? (a[23:1] == 23'h24b000) : (a[23:1]  == 23'h247000));
-    assign raw_board[15] = violent ? (a[23:1] == 23'h13c001) : (mystic ? (a[23:1] == 23'h24b001) : (a[23:1]  == 23'h247010));
-    assign raw_board[16] = violent ? (a[23:16] == 8'h20) : (mystic ? (a[23:16] == 8'h20) : (a[23:16] == 8'h60));
-    assign raw_board[17] = !violent && !mystic && (a[23:6]  == 18'h19800);
-    assign raw_board[18] = violent ? (a[23:1] == 23'h13e000) : (mystic ? (a[23:1] == 23'h248000) : (a[23:1]  == 23'h350000));
-    assign raw_board[19] = !violent && !mystic && (a[23:1]  == 23'h360000);
-    assign raw_board[20] = violent ? (a[23:1] == 23'h132000) : (mystic ? (a[23:1] == 23'h24d000) : (a[23:1]  == 23'h370000));
-    assign raw_board[21] = !violent && !mystic && (a[23:19] == 5'b1000_0);
-    assign raw_board[22] = !violent && !mystic && (a[23:19] == 5'b1010_0);
-    assign raw_board[23] = !violent && !mystic && (a[23:21] == 3'b110);
-    assign raw_board[24] = violent ? (a[23:1] == 23'h13a000) : mystic && (a[23:1] == 23'h24a000);
-    assign raw_board[25] = violent ? (a[23:1] == 23'h13a001) : mystic && (a[23:1] == 23'h24a001);
+    assign raw_board[0] = rng_map ? (a[23:21] == 3'd0) : (mystic ? (a[23:21] == 3'd0) : (a[23:20] <= 4'h2));
+    assign raw_board[1] = rng_map ? (a[23:16] == 8'h21) : ((a[23:16] == 8'h40));
+    assign raw_board[2] = rng_map ? (a[23:15] == 9'h060) : (mystic ? (a[23:14] == 10'h180) : (a[23:14] == 10'b0100_0001_00));
+    assign raw_board[3] = rng_map ? (a[23:13] == 11'h198) : (mystic ? (a[23:13] == 11'h380) : (a[23:13] == 11'b0100_0010_000));
+    assign raw_board[4] = rng_map ? (a[23:3] == 21'h048000) : (mystic ? (a[23:3] == 21'h090800) : (a[23:3]  == 21'h086000));
+    assign raw_board[5] = rng_map ? (a[23:13] == 11'h188) : (mystic ? (a[23:14] == 10'h1a0) : (a[23:13] == 11'b0100_0100_000));
+    assign raw_board[6] = rng_map ? (a[23:4] == 20'h24400) : (mystic ? (a[23:4] == 20'h48200) : (a[23:4]  == 20'h45000));
+    assign raw_board[7] = rng_map ? (a[23:4] == 20'h24401) : (mystic ? (a[23:4] == 20'h48201) : (a[23:4]  == 20'h45001));
+    assign raw_board[8] = !rng_map && !mystic && (a[23:5]  == 19'h23000);
+    assign raw_board[9] = !rng_map && !mystic && (a[23:12] == 12'h470);
+    assign raw_board[10] = !rng_map && !mystic && (a[23:2]  == 22'h121000);
+    assign raw_board[11] = rng_map ? (a[23:5] == 19'h13000) : (mystic ? (a[23:5] == 19'h24e00) : (a[23:5]  == 19'h24300));
+    assign raw_board[12] = rng_map ? (a[23:5] == 19'h13400) : (mystic ? (a[23:5] == 19'h24c00) : (a[23:5]  == 19'h24500));
+    assign raw_board[13] = rng_map ? (a[23:5] == 19'h12a00) : (mystic ? (a[23:5] == 19'h24500) : (a[23:5]  == 19'h24600));
+    assign raw_board[14] = rng_map ? (a[23:1] == 23'h13c000) : (mystic ? (a[23:1] == 23'h24b000) : (a[23:1]  == 23'h247000));
+    assign raw_board[15] = rng_map ? (a[23:1] == 23'h13c001) : (mystic ? (a[23:1] == 23'h24b001) : (a[23:1]  == 23'h247010));
+    assign raw_board[16] = rng_map ? (a[23:16] == 8'h20) : (mystic ? (a[23:16] == 8'h20) : (a[23:16] == 8'h60));
+    assign raw_board[17] = !rng_map && !mystic && (a[23:6]  == 18'h19800);
+    assign raw_board[18] = rng_map ? (a[23:1] == 23'h13e000) : (mystic ? (a[23:1] == 23'h248000) : (a[23:1]  == 23'h350000));
+    assign raw_board[19] = !rng_map && !mystic && (a[23:1]  == 23'h360000);
+    assign raw_board[20] = rng_map ? (a[23:1] == 23'h132000) : (mystic ? (a[23:1] == 23'h24d000) : (a[23:1]  == 23'h370000));
+    assign raw_board[21] = !rng_map && !mystic && (a[23:19] == 5'b1000_0);
+    assign raw_board[22] = !rng_map && !mystic && (a[23:19] == 5'b1010_0);
+    assign raw_board[23] = !rng_map && !mystic && (a[23:21] == 3'b110);
+    assign raw_board[24] = rng_map ? (a[23:1] == 23'h13a000) : mystic && (a[23:1] == 23'h24a000);
+    assign raw_board[25] = rng_map ? (a[23:1] == 23'h13a001) : mystic && (a[23:1] == 23'h24a001);
     assign raw_board[26] = violent && (a[23:6] == 18'h09700);
-    wire group55 = violent ? (a[23:8]==16'h2580) :
+    wire group55 = rng_map ? (a[23:8]==16'h2580) :
                     mystic ? (a[23:8]==16'h4800) : (a[23:8]==16'h4880);
-    wire group56 = violent ? (a[23:6]==18'h09c00) :
+    wire group56 = rng_map ? (a[23:6]==18'h09c00) :
                     mystic ? (a[23:6]==18'h12300) : (a[23:6]==18'h12000);
-    wire group56b = violent ? (a[23:3]==21'h04d800) :
+    wire group56b = rng_map ? (a[23:3]==21'h04d800) :
                      mystic ? (a[23:3]==21'h093c00) : (a[23:3]==21'h090400);
-    wire raw_rom = violent ? (a[23:21]==3'd0) :
+    wire raw_rom = rng_map ? (a[23:21]==3'd0) :
                    mystic ? (a[23:21]==3'd0) : (a[23:20]<=4'h2);
-    wire raw_vram = violent ? (a[23:15]==9'h060) :
+    wire raw_vram = rng_map ? (a[23:15]==9'h060) :
                     mystic ? (a[23:14]==10'h180) : (a[23:14]==10'b0100_0001_00);
-    wire raw_rb0 = !violent && !mystic && a[23:19]==5'b1000_0;
-    wire raw_rb1 = !violent && !mystic && a[23:19]==5'b1010_0;
-    wire raw_rb2 = !violent && !mystic && a[23:21]==3'b110;
-    wire raw_tmrb = violent ? (a[23:13]==11'h188) :
+    wire raw_rb0 = !rng_map && !mystic && a[23:19]==5'b1000_0;
+    wire raw_rb1 = !rng_map && !mystic && a[23:19]==5'b1010_0;
+    wire raw_rb2 = !rng_map && !mystic && a[23:21]==3'b110;
+    wire raw_tmrb = rng_map ? (a[23:13]==11'h188) :
                     mystic ? (a[23:14]==10'h1a0) : (a[23:13]==11'b0100_0100_000);
-    wire raw_sprrb = violent ? (a[23:4]==20'h24400) :
+    wire raw_sprrb = rng_map ? (a[23:4]==20'h24400) :
                      mystic ? (a[23:4]==20'h48200) : (a[23:4]==20'h45000);
     (* preserve, dont_merge *) logic k000_r,local_other_r,vram_r;
     assign k000=k000_r;assign local_other=local_other_r;assign vram=vram_r;
@@ -760,8 +801,11 @@ module pregx_mmio_targets (
     assign k55=k55_r;assign k56=k56_r;assign k56b=k56b_r;
     always_ff @(posedge clk) begin
         board_r <= raw_board;
-        k000_r <= !violent && !mystic && a[23:6]==18'h19800;
-        local_other_r <= !(raw_rom || raw_vram || raw_rb0 || raw_rb1 || raw_rb2 || raw_tmrb || raw_sprrb);
+        lvc_ram<=metam && a[23:14]==10'h093;
+        lvc_reg<=metam && a[23:4]==20'h25000;
+        lvc_rom<=metam && a[23:13]==11'h190;
+        k000_r <= !rng_map && !mystic && a[23:6]==18'h19800;
+        local_other_r <= !(raw_rom || raw_vram || raw_rb0 || raw_rb1 || raw_rb2 || raw_tmrb || raw_sprrb || (metam && (a[23:14]==10'h093 || a[23:13]==11'h190)));
         vram_r <= raw_vram;
         // All seven K55 bits include the original <48 guard and A7 holes.
         for (int i=0;i<48;i++) k55_r[i] <= group55 && a[7:1]==7'(i);

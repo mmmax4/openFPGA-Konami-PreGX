@@ -26,6 +26,7 @@ module k053247_draw #(
     input  logic        clk,
     input  logic        reset,
     input  logic        violent,
+    input logic metam,
     input  logic        mystic,        // stable profile through render/scanout
 
     input  logic        line_start,
@@ -97,9 +98,9 @@ module k053247_draw #(
 );
     // Runtime profile is held through the full reset/reload window. Track it
     // continuously, including reset, and keep the high-fanout decoders local.
-    (* preserve, dont_merge *) logic draw_mystic, draw_violent;
+    (* preserve, dont_merge *) logic draw_mystic, draw_violent,draw_metam;
     always_ff @(posedge clk) begin
-        draw_mystic <= mystic; draw_violent <= violent;
+        draw_mystic <= mystic; draw_violent <= violent;draw_metam<=metam;
     end
 
     // Nearly every value here is a field carved out of a 16-bit chip register
@@ -108,11 +109,11 @@ module k053247_draw #(
     // instead of nineteen times.
     /* verilator lint_off UNUSEDSIGNAL */
 
-    wire signed [17:0] DXS = draw_violent ? -18'sd62 : draw_mystic ? -18'sd48 : 18'(DX);
-    wire signed [17:0] DYS = draw_violent ? -18'sd23 : draw_mystic ? -18'sd24 : 18'(DY);
-    wire signed [17:0] CLS = draw_mystic ? 18'sd24 : 18'(VIS_X0);
-    wire signed [17:0] CRS = draw_violent ? 18'sd423 : draw_mystic ? 18'sd311 : 18'(VIS_X0 + VIS_W - 1);
-    wire [LB_AW-1:0] last_visible = draw_violent ? LB_AW'(383) : draw_mystic ? LB_AW'(287) : LB_AW'(VIS_W - 1);
+    wire signed [17:0] DXS = draw_metam ? -18'sd51 : draw_violent ? -18'sd62 : draw_mystic ? -18'sd48 : 18'(DX);
+    wire signed [17:0] DYS = draw_metam ? -18'sd24 : draw_violent ? -18'sd23 : draw_mystic ? -18'sd24 : 18'(DY);
+    wire signed [17:0] CLS = (draw_mystic || draw_metam) ? 18'sd24 : 18'(VIS_X0);
+    wire signed [17:0] CRS = draw_metam ? 18'sd311 : draw_violent ? 18'sd423 : draw_mystic ? 18'sd311 : 18'(VIS_X0 + VIS_W - 1);
+    wire [LB_AW-1:0] last_visible = draw_metam ? LB_AW'(287) : draw_violent ? LB_AW'(383) : draw_mystic ? LB_AW'(287) : LB_AW'(VIS_W - 1);
     localparam logic signed [17:0] CTS = 18'(VIS_Y0);
     localparam logic signed [17:0] CBS = 18'(VIS_Y0 + VIS_H - 1);
 
@@ -269,7 +270,12 @@ module k053247_draw #(
     // this line's source row, and the clipped destination span for this tile
     // the source row: line - sy, times the row's reciprocal stride, in three
     // registered steps (as one clock the multiply missed the cold corner)
-    wire signed [17:0] lsy = $signed({9'd0, line}) - sy;
+    // Raster line is stable throughout the row. Capture it while the existing
+    // line-start clear/list/geometry stages run, before the first D_TYC use.
+    // Keep cache/queue line and cancellation on their original cycle.
+    logic [8:0] geometry_line;
+    always_ff @(posedge clk) geometry_line<=line;
+    wire signed [17:0] lsy = $signed({9'd0, geometry_line}) - sy;
     logic  [8:0] lsy_r;
     logic [32:0] ymul_r;
     wire  [3:0] yoff = ymul_r[22:19];
@@ -337,7 +343,7 @@ module k053247_draw #(
     wire solid_candidate = tile_solid && (pen!=5'd0) &&
         !(drawmode[1:0]!=2'd0 && pen>=shdpen) && (zb_q>=zcode);
     wire shadow_candidate = !tile_solid && (pen>=shdpen);
-    wire streaming = (draw_mystic || draw_violent) && stream_enable;
+    wire streaming = (draw_mystic || draw_violent || draw_metam) && stream_enable;
     logic [9:0] legacy_list_idx;
     logic [7:0] legacy_yr_addr;
     logic [10:0] legacy_ram_addr;
@@ -403,7 +409,7 @@ module k053247_draw #(
     logic [19:0] row_rom_addr;
     wire row_rom_ack;
     wire [63:0] row_rom_q;
-    wire vio_row_cache = draw_violent && streaming;
+    wire vio_row_cache = (draw_violent || draw_metam) && streaming;
     wire cache_row_ack;
     wire [63:0] cache_row_q;
     logic vio_row_ack;
@@ -585,7 +591,7 @@ module k053247_draw #(
                     object_level<=object_alpha;
                     // Keep raw mode2/3 in the ordered list; alpha gating is
                     // a draw operation, before writing any object Z/pixel.
-                    if ((draw_mystic || draw_violent) && drawmode[1] && object_alpha == 10'd255)
+                    if ((draw_mystic || draw_violent || draw_metam) && drawmode[1] && object_alpha == 10'd255)
                         drawmode <= drawmode & 4'hd;
                     nozoom  <= (scalex == 10'h40) && (scaley == 10'h40);
                     mirrorx <= w6[14];
@@ -593,8 +599,8 @@ module k053247_draw #(
                     flipx   <= w6[14] ? 1'b0    : (w0[12] ^ k46r5[0]);
                     flipy   <= w6[15] ? w0[13]  : (w0[13] ^ k46r5[1]);
                     // gaiapols_sprite_callback
-                    color   <= colorbase | {2'd0, !draw_mystic && !draw_violent && w6[9], 5'd0} | {3'd0, w6[4:0]};
-                    effect  <= (draw_mystic || draw_violent) ? w6[9:8] : 2'b00;
+                    color   <= colorbase | {2'd0, !draw_mystic && !draw_violent && !draw_metam && w6[9], 5'd0} | {3'd0, w6[4:0]};
+                    effect  <= (draw_mystic || draw_violent || draw_metam) ? w6[9:8] : 2'b00;
                     width   <= 4'd1 << szc[1:0];
                     height  <= 4'd1 << szc[3:2];
                     xa <= {2'd0, w1[0]} + {1'd0, w1[2], 1'b0} + {w1[4], 2'd0};
@@ -602,7 +608,7 @@ module k053247_draw #(
                     codebase <= w1 & ~16'h003f;
                     ox2_r <= ox2;
                     oy2_r <= oy2;
-                    st <= ((draw_mystic || draw_violent) && drawmode[1] && object_alpha == 10'd0) ? D_NEXTOBJ : D_GEOM2;
+                    st <= ((draw_mystic || draw_violent || draw_metam) && drawmode[1] && object_alpha == 10'd0) ? D_NEXTOBJ : D_GEOM2;
                 end
                 D_GEOM2: begin
                     ox <= gox;
@@ -643,7 +649,7 @@ module k053247_draw #(
                         recip_addr <= zw[10:0];
                         fx         <= fx_c;
                         tempcode   <= tempcode_y + {10'd0, xoffset(xsel)};
-                        if (draw_violent && streaming && nozoom) begin
+                        if ((draw_violent || draw_metam) && streaming && nozoom) begin
                             // Nozoom fixes zw=16 and recip[16]=0x080000.
                             // Capture the same clipped span/offset directly;
                             // D_SX3 still performs the normal Z prime, ROM/
@@ -677,7 +683,7 @@ module k053247_draw #(
                         rowfifth <= fx ? reflected_fifth(rowfifth_pf) : rowfifth_pf; pf_have <= 1'b0;
                         if (has_next) begin row_rom_addr <= row_address(tempcode_y + {10'd0, xoffset(xsel_n)}, src_row); row_rom_req <= 1'b1; end
                         else pf_valid <= 1'b0;
-                        st <= (draw_violent && streaming && empty_from_flags(empty_flags_pf,drawmode))
+                        st <= ((draw_violent || draw_metam) && streaming && empty_from_flags(empty_flags_pf,drawmode))
                             ? D_NEXTTX : D_PIX;
                     end else if (pf_valid) begin                // still on its way
                         st <= D_ROWW;
@@ -698,7 +704,7 @@ module k053247_draw #(
                         row_rom_addr <= row_address(tempcode_y + {10'd0, xoffset(xsel_n)}, src_row); row_rom_req <= 1'b1;
                         pf_valid <= 1'b1; pf_have <= 1'b0;
                     end else begin row_rom_req <= 1'b0; pf_valid <= 1'b0; end
-                    st <= (draw_violent && streaming && empty_from_flags(
+                    st <= ((draw_violent || draw_metam) && streaming && empty_from_flags(
                         (pf_valid && pf_have) ? empty_flags_pf : vio_empty_flags,drawmode))
                         ? D_NEXTTX : D_PIX;
                 end

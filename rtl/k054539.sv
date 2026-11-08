@@ -32,12 +32,14 @@ module k054539 #(
     // Q2.14 per-channel gain, MSB channel 7; 0x4000 = 1.0
     parameter logic [7:0][15:0] GAIN_Q14 = {8{16'h4000}},
     parameter logic [7:0][15:0] GAIN_Q14_ALT = GAIN_Q14,
-    parameter logic [7:0][15:0] GAIN_Q14_VIO = GAIN_Q14
+    parameter logic [7:0][15:0] GAIN_Q14_VIO = GAIN_Q14,
+    parameter logic [7:0][15:0] GAIN_Q14_METAM = GAIN_Q14
 ) (
     input  logic        clk,
     input  logic        reset,
     input  logic        cen_48k,        // one pulse per output sample
     input  logic        gain_vio,
+    input logic gain_metam,
     input  logic        gain_alt,       // stable board profile, changed under reset
 
     // Z80 side
@@ -77,9 +79,12 @@ module k054539 #(
 
     // Gaia0.3.2 audio behavior adapted from plasticbugs c1a662e6 / decoryah
     // ebcb5932 (GPL-3.0). Keep the confirmed Mystic/Vio audio path unchanged.
+    // Metamorphic also uses UPDATE_AT_KEYON and double reverb position, as
+    // pinned Metamorphic87942017 and MAME0289; its independent original-data
+    // negative/positive fixture is retained. Mystic/Vio remain on their branch.
     // Profile changes occur under the Pocket reset/settle guard.
     (* preserve, dont_merge *) logic accurate_gaia;
-    always_ff @(posedge clk) accurate_gaia <= !(gain_alt || gain_vio);
+    always_ff @(posedge clk) accurate_gaia <= gain_metam || !(gain_alt || gain_vio);
     logic [23:0] posl[8], pending_pos[8];
     logic [7:0] ko_pend, ko_next;
     logic cp_run;
@@ -293,11 +298,12 @@ module k054539 #(
     logic signed [15:0] ch_val [8], ch_pval [8];
 
     logic  [2:0] ch;
-    wire [15:0] channel_gain = gain_vio ? GAIN_Q14_VIO[ch] : gain_alt ? GAIN_Q14_ALT[ch] : GAIN_Q14[ch];
+    wire [15:0] channel_gain = gain_metam ? GAIN_Q14_METAM[ch] : gain_vio ? GAIN_Q14_VIO[ch] : gain_alt ? GAIN_Q14_ALT[ch] : GAIN_Q14[ch];
     logic [12:0] reverb_pos;
     logic signed [31:0] lval, rval;
     logic [23:0] delta, cur_pos, loop_pos;
     logic [24:0] cur_pfrac;            // 16-bit fraction plus the integer carry
+    logic restart_channel;
     logic signed [16:0] cur_val, cur_pval;
     logic        neg_dir, is_16, is_dpcm, loop_en;
     logic [15:0] lvol, rvol, rbvol;
@@ -448,12 +454,16 @@ module k054539 #(
                 end
                 A_CHV4: begin
                     lvol <= q14cap(u_l); rvol <= q14cap(u_r); rbvol <= q14cap(u_b);   // rbvol: gain / 2
+                    // cur_pos was loaded in A_CHX; the renderer's ch_pos array
+                    // changes only in A_RVB_WR. Both operands stay identical
+                    // through A_STEP, so resolve this before its fraction add.
+                    restart_channel <= cur_pos != ch_pos[ch];
                     ast <= A_STEP;
                 end
                 // restart detection, DPCM nibble addressing, pfrac += delta
                 A_STEP: begin
                     logic [15:0] pf; logic signed [16:0] v, pv; logic [23:0] pos;
-                    if (cur_pos != ch_pos[ch]) begin pf = '0; v = '0; pv = '0; end
+                    if (restart_channel) begin pf = '0; v = '0; pv = '0; end
                     else begin pf = ch_pfrac[ch]; v = {ch_val[ch][15], ch_val[ch]}; pv = {ch_pval[ch][15], ch_pval[ch]}; end
                     pos = cur_pos;
                     if (is_dpcm) begin pos = {cur_pos[22:0], pf[15]}; pf = {pf[14:0], 1'b0}; end

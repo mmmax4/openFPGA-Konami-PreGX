@@ -5,7 +5,7 @@
 - **plasticbugs / Scott** — original Gaiapolis Pocket gateware, integration,
   memory controllers, renderers, audio model, tools and test framework.
 - **decoryah** — same-family MiSTer K055550/tangent source and sprite cache
-  behavior references; Gaiapolis MiSTer comparison and upstream lineage.
+  behavior references; Gaiapolis MiSTer comparison, Metamorphic Force K053250 source/tests and upstream lineage.
 - **Tobias Gubener / TG68K.C** — Motorola 68000-compatible CPU.
 - **Guy Hutchison, Daniel Wallner, hoglet67 and TV80 contributors** — Z80 CPU.
 - **Marcus Andrade / OpenGateware and contributors** — Pocket platform/BSP.

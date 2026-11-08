@@ -5,7 +5,8 @@
 `default_nettype none
 module pregx_mystic_compositor (
     input logic clk, reset, line_start,
-    input logic violent,
+    input logic violent,metam,
+    input logic[10:0]road_pen,input logic road_opaque,road_ready,
     input logic [1:0] last_mix,
     input logic [7:0] k55regs[48],
     input logic [15:0] k38regs[16],
@@ -36,9 +37,9 @@ module pregx_mystic_compositor (
 );
     typedef enum logic [2:0] {IDLE,CLEAR,OBJECTS,TILE_PRIME,TILE_RUN,DRAIN,SELECT_WAIT,MASK_WAIT} state_t;
     state_t state;
-    logic [3:0] done_tiles, enables;
+    logic [4:0] done_tiles, enables;
     logic sprite_enable;
-    logic [7:0] priorities[4], shadow_on, mix, mix_on;
+    logic [7:0] priorities[5], shadow_on, mix, mix_on;
     logic [9:0] levels[4];
     logic [7:0] tile_brightness[4], object_brightness;
     function automatic [7:0] brightness_factor(input logic [1:0] selector);
@@ -49,33 +50,50 @@ module pregx_mystic_compositor (
             default: return 8'hff;
         endcase
     endfunction
-    logic [1:0] layer;
+    logic[7:0]current_brightness;
+    // A tile changes the shared palette contrast even when its pixels are transparent.
+    // Before the first painter pass MAME retains the last enabled tile's contrast.
+    // Snapshot with the other line controls, then select the lowest priority
+    // (lower tile index wins ties) in two registered levels. CLEAR/MASK_WAIT
+    // already precede all accepted fragments; no painter cycle is added.
+    logic [3:0] seed_enables;
+    logic [1:0] seed_valid;
+    logic [7:0] seed_priority[2], seed_brightness[2];
+    wire[1:0]road_mix=k55regs[35][3:2];
+    logic[7:0]road_control;
+    always_comb case(road_mix)1:road_control=k38regs[13][7:0];2:road_control=k38regs[14][15:8];3:road_control=k38regs[14][7:0];default:road_control=0;endcase
+    wire road_hide=k55regs[35]!=8'hff && road_mix!=0 && road_control[4:0]==5'd31;
+    logic [2:0] layer;
     logic [8:0] x;
     logic have_tile;
-    logic [1:0] next_tile;
+    logic [2:0] next_tile;
     logic [7:0] next_priority;
     // Two registered comparator levels keep tile priority selection out of
     // the object-ready path. Higher layer indices paint first on a tie.
-    logic [1:0] pair_valid;
-    logic [1:0] pair_tile[2];
-    logic [7:0] pair_priority[2];
+    logic [2:0] pair_valid;
+    logic [2:0] pair_tile[3];
+    logic [7:0] pair_priority[3];
     always_ff @(posedge clk) begin
         if(reset || line_start) begin
-            pair_valid<=2'd0;have_tile<=1'b0;next_tile<=2'd0;next_priority<=8'd0;
-            for(int g=0;g<2;g++) begin pair_tile[g]<=2'd0;pair_priority[g]<=8'd0;end
+            pair_valid<=2'd0;have_tile<=1'b0;next_tile<=3'd0;next_priority<=8'd0;
+            for(int g=0;g<3;g++) begin pair_tile[g]<=3'd0;pair_priority[g]<=8'd0;end
         end else begin
             for(int g=0;g<2;g++) begin
                 if(enables[2*g+1] && !done_tiles[2*g+1] &&
                    (!(enables[2*g] && !done_tiles[2*g]) ||
                     priorities[2*g+1]>=priorities[2*g])) begin
-                    pair_valid[g]<=1'b1;pair_tile[g]<=2'(2*g+1);
+                    pair_valid[g]<=1'b1;pair_tile[g]<=3'(2*g+1);
                     pair_priority[g]<=priorities[2*g+1];
                 end else begin
                     pair_valid[g]<=enables[2*g] && !done_tiles[2*g];
-                    pair_tile[g]<=2'(2*g);pair_priority[g]<=priorities[2*g];
+                    pair_tile[g]<=3'(2*g);pair_priority[g]<=priorities[2*g];
                 end
             end
-            if(pair_valid[1] && (!pair_valid[0] || pair_priority[1]>=pair_priority[0])) begin
+            pair_valid[2]<=enables[4] && !done_tiles[4];pair_tile[2]<=3'd4;pair_priority[2]<=priorities[4];
+            if(pair_valid[2] && (!pair_valid[0] || pair_priority[2]>=pair_priority[0]) &&
+                (!pair_valid[1] || pair_priority[2]>=pair_priority[1]))begin
+                have_tile<=1'b1;next_tile<=3'd4;next_priority<=pair_priority[2];
+            end else if(pair_valid[1] && (!pair_valid[0] || pair_priority[1]>=pair_priority[0])) begin
                 have_tile<=1'b1;next_tile<=pair_tile[1];next_priority<=pair_priority[1];
             end else begin
                 have_tile<=pair_valid[0];next_tile<=pair_tile[0];next_priority<=pair_priority[0];
@@ -94,18 +112,20 @@ module pregx_mystic_compositor (
     logic [7:0] rgb_top;
     logic [1:0] rgb_table,rgb_condition;
     logic [7:0] rgb_z,rgb_pri;
-    wire [1:0] mix_mask = 2'(mix_on >> {layer,1'b0});
-    wire [1:0] tile_mix = (tile_category[layer] & ~mix_mask) |
-                           (2'(mix >> {layer,1'b0}) & mix_mask);
-    wire [1:0] vio_internal = 2'(mix >> {layer,1'b0}) & mix_mask;
+    logic [1:0] mix_mask;
+    wire [1:0] tile_mix = (tile_category[layer[1:0]] & ~mix_mask) |
+                           (2'(mix >> {layer[1:0],1'b0}) & mix_mask);
+    wire [1:0] selected_mix_mask=2'(mix_on >> {layer[1:0],1'b0});
+    wire [1:0] vio_internal = 2'(mix >> {layer[1:0],1'b0}) & selected_mix_mask;
     wire [1:0] vio_external = last_mix & ~mix_mask;
-    wire [9:0] vi=levels[vio_internal], ve=levels[vio_external];
+    logic [9:0] vi;
+    wire [9:0] ve=levels[vio_external];
     // Preserve MAME's declared tile additive approximation separately from
     // the existing Mystic RGB arithmetic. Category is a boolean in Violent.
     wire [7:0] vi8 = vi[8] ? (vi[7:0]!=8'd255 ? vi[7:0] : 8'd0) : vi[7:0];
     wire [7:0] ve8 = ve[7:0];
-    wire [9:0] tile_level=violent ? {2'd0,((tile_category[layer]!=2'd0 && ve8!=8'hff) ? ve8 : vi8)} : levels[tile_mix];
-    wire tile_accept = tile_opaque[layer] &&
+    wire [9:0] tile_level=(violent || metam) ? {2'd0,((violent && tile_category[layer[1:0]]!=2'd0 && ve8!=8'hff) ? ve8 : vi8)} : levels[tile_mix];
+    wire tile_accept = layer==3'd4 ? road_opaque : tile_opaque[layer[1:0]] &&
                       !(!tile_level[8] && tile_level[7:0]==8'd0);
     // Keep the synchronous tile RAM address independent of its returned
     // opaque/category data. Tile runs start with an empty RGB pipeline and
@@ -127,15 +147,15 @@ module pregx_mystic_compositor (
         if(state==TILE_RUN && advance_tile && x<(violent ? 9'd383 : 9'd287)) tile_x=x+9'd1;
         rgb_valid=fragment_valid && sprite_enable && state==OBJECTS;
         rgb_x=fragment_x;rgb_pen=fragment_pen[10:0];rgb_level=fragment_level;
-        rgb_brightness=object_brightness;
+        rgb_brightness=metam ? current_brightness : object_brightness;
         rgb_tile=1'b0;rgb_top=fragment_pri;rgb_shadow=fragment_shadow;
         rgb_table=fragment_table;rgb_condition=fragment_condition;
         rgb_z=fragment_z;rgb_pri=fragment_pri;
         if(state==TILE_RUN) begin
-            rgb_valid=tile_accept;rgb_x=x;rgb_pen=tile_pen[layer][10:0];
-            rgb_level=tile_level;rgb_tile=1'b1;
-            rgb_brightness=tile_brightness[layer];
-            rgb_top=shadow_on[{1'b0,layer}] ? priorities[layer] : 8'hff;
+            rgb_valid=tile_accept;rgb_x=x;rgb_pen=layer==3'd4 ? road_pen : tile_pen[layer[1:0]][10:0];
+            rgb_level=layer==3'd4 ? 10'd255 : tile_level;rgb_tile=1'b1;
+            rgb_brightness=layer==3'd4 ? current_brightness : tile_brightness[layer[1:0]];
+            rgb_top=shadow_on[layer] ? priorities[layer] : 8'hff;
             rgb_shadow=1'b0;rgb_table=2'd0;rgb_condition=2'd3;
             rgb_z=8'd0;rgb_pri=priorities[layer];
         end
@@ -162,10 +182,11 @@ module pregx_mystic_compositor (
         if(reset) begin state<=IDLE;done_tiles<='0;x<='0;layer<='0;end
         else if(line_start) begin
             state<=CLEAR;done_tiles<='0;x<='0;
-            enables<=k55regs[45][3:0] & {4{k38regs[15][0]}};
+            enables<={metam && k55regs[45][5] && !road_hide,k55regs[45][3:0]} & {5{k38regs[15][0]}};
             sprite_enable<=k55regs[45][4] && k38regs[15][0];
             priorities[0]<=k55regs[7];priorities[1]<=k55regs[10];
-            priorities[2]<=k55regs[13];priorities[3]<=k55regs[14];
+            priorities[2]<=k55regs[13];priorities[3]<=k55regs[14];priorities[4]<=k55regs[16];
+            seed_enables<=k55regs[45][3:0];
             shadow_on<=k55regs[40];mix<=k55regs[33];mix_on<=k55regs[34];
             levels[0]<=10'd255;levels[1]<=alpha1;levels[2]<=alpha2;levels[3]<=alpha3;
             for(int l=0;l<4;l++)
@@ -174,13 +195,36 @@ module pregx_mystic_compositor (
         end else case(state)
             // Tile bank swaps after line_start. Sample the completed scan-bank
             // summary after RGB clear, then settle both selector registers.
-            CLEAR: if(!rgb_busy) begin enables<=enables & tile_nonempty;state<=MASK_WAIT;end
-            MASK_WAIT: state<=SELECT_WAIT;
+            CLEAR: begin
+                for(int g=0;g<2;g++) begin
+                    seed_valid[g]<=seed_enables[2*g] || seed_enables[2*g+1];
+                    if(seed_enables[2*g+1] &&
+                       (!seed_enables[2*g] || priorities[2*g+1]<priorities[2*g])) begin
+                        seed_priority[g]<=priorities[2*g+1];
+                        seed_brightness[g]<=tile_brightness[2*g+1];
+                    end else begin
+                        seed_priority[g]<=priorities[2*g];
+                        seed_brightness[g]<=tile_brightness[2*g];
+                    end
+                end
+                if(!rgb_busy) begin enables<=enables & (metam ? 5'h1f : {1'b0,tile_nonempty});state<=MASK_WAIT;end
+            end
+            MASK_WAIT: begin
+                if(seed_valid[1] && (!seed_valid[0] || seed_priority[1]<seed_priority[0]))
+                    current_brightness<=seed_brightness[1];
+                else current_brightness<=seed_valid[0] ? seed_brightness[0] : 8'hff;
+                state<=SELECT_WAIT;
+            end
             OBJECTS: begin
-                if(paint_before && !rgb_busy) begin layer<=next_tile;x<='0;state<=TILE_PRIME;end
+                if(paint_before && !rgb_busy && (next_tile!=3'd4 || road_ready)) begin layer<=next_tile;x<='0;state<=TILE_PRIME;end
                 else if(!sprite_busy && !have_tile && !rgb_busy) state<=IDLE;
             end
-            TILE_PRIME: state<=TILE_RUN;
+            TILE_PRIME: begin
+                state<=TILE_RUN;
+                mix_mask<=selected_mix_mask;
+                vi<=levels[vio_internal];
+                if(layer!=3'd4)current_brightness<=tile_brightness[layer[1:0]];
+            end
             TILE_RUN: if(advance_tile) begin
                 if(x==(violent ? 9'd383 : 9'd287)) begin done_tiles[layer]<=1'b1;state<=DRAIN;end
                 else x<=x+9'd1;

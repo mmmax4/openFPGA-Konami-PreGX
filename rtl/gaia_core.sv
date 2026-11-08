@@ -21,6 +21,12 @@ module gaia_core #(
     input  logic        clk,                // 96 MHz
     input  logic        reset,              // the machine
     input  logic        violent,
+    input logic metam,
+    output logic lvc_req,output logic[14:0]lvc_addr,
+    input logic lvc_ack,input logic[63:0]lvc_q,
+    output logic road_req,road_we,output logic[13:0]road_addr,
+    output logic[1:0]road_be,output logic[15:0]road_wdata,
+    input logic road_ack,input logic[15:0]road_q,
     input  logic        mystic,            // stable from video reset through session
     input  logic [15:0] mystic_p12, mystic_p34,
     input  logic [7:0] mystic_in0,
@@ -135,16 +141,16 @@ module gaia_core #(
     // Static profile selection settles under the Pocket reset guard. Keep
     // dynamic reset, prestart and line_start on their original cycle.
     (* preserve, dont_merge *) logic roz_disabled;
-    always_ff @(posedge clk) roz_disabled <= mystic || violent;
+    always_ff @(posedge clk) roz_disabled <= mystic || violent || metam;
 
-    clk_enables u_cen (.clk(clk), .reset(vid_reset), .pix_sync(pix_sync), .mystic(mystic), .cen_pix(cen_pix), .cen_16m(cen_16m), .cen_8m(cen_8m), .cen_48k(cen_48k));
+    clk_enables u_cen (.clk(clk), .reset(vid_reset), .pix_sync(pix_sync), .mystic(mystic || metam), .cen_pix(cen_pix), .cen_16m(cen_16m), .cen_8m(cen_8m), .cen_48k(cen_48k));
 
     // ------------------------------------------------------------ timing
     logic        line_start, prestart, px_valid, vblank_rise, scanline_start;
     logic  [2:0] renderers_busy;
     logic  [8:0] render_line, px, hcount, vcount;
     gaia_video u_vid (
-        .violent(violent), .mystic(mystic), .scanline_start(scanline_start),
+        .metam(metam),.violent(violent), .mystic(mystic), .scanline_start(scanline_start),
         .clk(clk), .reset(vid_reset), .cen_pix(cen_pix),
         .line_start(line_start), .render_line(render_line), .prestart(prestart),
         .renderers_busy(renderers_busy), .overrun(dbg_overrun), .overrun_src(dbg_overrun_src),
@@ -175,8 +181,29 @@ module gaia_core #(
     logic [19:0] ctrom_addr;
     logic [19:0] csrom_addr;
 
+    logic[7:0]k50regs[8];
+    wire lc_req,lc_we,lc_ack,road_ready,road_dma_busy;
+    wire[12:0]lc_addr;wire[1:0]lc_be;wire[15:0]lc_wdata,lc_q;
+    wire clrom_req,clrom_ack,rlrom_req,rlrom_ack;wire[14:0]clrom_addr,rlrom_addr;
+    wire road_snapshot_begin,road_snapshot_active,road_snapshot_req,road_snapshot_allowed,road_snapshot_ack;
+    wire[10:0]road_snapshot_addr;wire[15:0]road_snapshot_q;
+    wire road_frame_tick=metam && scanline_start && vcount==9'd241;
+    pregx_road_state u_road_state(.clk(clk),.reset(reset || !metam),
+        .frame_tick(road_frame_tick),.reg4_dma(k50regs[4][1]),.initialized(road_ready),.dma_busy(road_dma_busy),
+        .cpu_req(lc_req),.cpu_we(lc_we),.cpu_addr(lc_addr),.cpu_be(lc_be),.cpu_wdata(lc_wdata),.cpu_ack(lc_ack),.cpu_q(lc_q),
+        .snapshot_begin(road_snapshot_begin),.snapshot_active(road_snapshot_active),.snapshot_req(road_snapshot_req),.snapshot_addr(road_snapshot_addr),
+        .snapshot_allowed(road_snapshot_allowed),.snapshot_ack(road_snapshot_ack),.snapshot_q(road_snapshot_q),.page(),
+        .mem_req(road_req),.mem_we(road_we),.mem_addr(road_addr),.mem_be(road_be),.mem_wdata(road_wdata),.mem_ack(road_ack),.mem_q(road_q));
+    rom_arb2 #(.AW(15),.DW(64)) u_road_arb(.clk(clk),.reset(reset || !metam),
+        .c0_req(rlrom_req),.c0_addr(rlrom_addr),.c0_ack(rlrom_ack),
+        .c1_req(clrom_req),.c1_addr(clrom_addr),.c1_ack(clrom_ack),
+        .m_req(lvc_req),.m_addr(lvc_addr),.m_ack(lvc_ack),.m_q(lvc_q),.q());
+
     gaia_main #(.HEXDIR(HEXDIR), .STEP_COST_BUS(STEP_COST_BUS), .STEP_COST_INT(STEP_COST_INT)) u_main (
         .clk(clk), .reset(reset), .pause(pause), .cen_16m(cen_16m),
+        .metam(metam),.lvc_cpu_stall(!road_ready || road_dma_busy),
+        .lvc_req(lc_req),.lvc_we(lc_we),.lvc_addr(lc_addr),.lvc_be(lc_be),.lvc_wdata(lc_wdata),.lvc_ack(lc_ack),.lvc_q(lc_q),
+        .k50regs(k50regs),.lvc_rom_req(clrom_req),.lvc_rom_addr(clrom_addr),.lvc_rom_ack(clrom_ack),.lvc_rom_q(lvc_q),
         .violent(violent), .mystic(mystic), .raster_start(scanline_start), .raster_line(vcount),
         .mystic_p12(mystic_p12), .mystic_p34(mystic_p34), .mystic_in0(mystic_in0),
         .trom_fifth(tile_fifth), .srom_fifth(spr_fifth), .dbg_irq2(), .dbg_irq4(), .dbg_rb_oob(),
@@ -222,7 +249,7 @@ module gaia_core #(
 
     logic [15:0] mix_l, mix_r;
     gaia_sound #(.HEXDIR(HEXDIR)) u_snd (
-        .violent(violent), .mystic(mystic),
+        .metam(metam),.violent(violent), .mystic(mystic),
         // ROM handshakes, delayed writes and the current PCM render drain on
         // clk; only CPU progression and new sample/timer ticks are suspended.
         .clk(clk), .reset(reset), .cen_8m(cen_8m && !pause), .cen_48k(cen_48k && !pause),
@@ -242,7 +269,7 @@ module gaia_core #(
     logic [7:0] tm_colorbase [4];
     always_comb for (int l = 0; l < 4; l++) tm_colorbase[l] = {k55regs[23 + l][3:0], 4'd0};
     wire [7:0] roz_palbase   = k55regs[28];
-    wire [7:0] spr_colorbase = violent ? {k55regs[27][3:0],4'd0} : mystic ? {k55regs[27][2:0],5'd0} : {1'b0,k55regs[27][2:0],4'd0};
+    wire [7:0] spr_colorbase = (violent || metam) ? {k55regs[27][3:0],4'd0} : mystic ? {k55regs[27][2:0],5'd0} : {1'b0,k55regs[27][2:0],4'd0};
     wire [7:0] objset1       = k46regs[5];
     wire [15:0] opset        = k47regs[6];
     wire [15:0] k46offx      = {k46regs[0], k46regs[1]};
@@ -297,7 +324,7 @@ module gaia_core #(
     always_ff @(posedge clk) begin
         early_tile_start<=1'b0;
         if(vid_reset) early_tile_line<='0;
-        else if(scanline_start && (mystic || violent) && vcount>=9'd14 && vcount<=9'd239) begin
+        else if(scanline_start && roz_disabled && vcount>=(metam ? 9'd15 : 9'd14) && vcount<=(metam ? 9'd240 : 9'd239)) begin
             early_tile_start<=1'b1;early_tile_line<=vcount+9'd2;
         end
     end
@@ -312,7 +339,7 @@ module gaia_core #(
     logic [18:0] rtile_addr;
     logic [19:0] rspr_addr;
 
-    assign renderers_busy  = {tm_busy, roz_busy, dr_busy | ((mystic || violent) && compositor_busy)};
+    assign renderers_busy  = {tm_busy, metam ? lvc_row_busy : roz_busy, dr_busy | (roz_disabled && compositor_busy)};
     assign dbg_roz_en = roz_enable;
     always_comb begin
         for (int i = 0; i < 8; i++)  dbg_rozctrl[i*16 +: 16] = rozctrl[i];
@@ -368,23 +395,23 @@ module gaia_core #(
         if (!reset && (mystic || violent)) begin
             if(mystic_copy_trigger) copy_start <= 1'b1;
         end else if (!reset && cen_pix) begin
-            if (vcount == 9'(OBJ_BUILD_LINE) && hcount == 9'd0 && build_armed) begin
+            if (vcount == (metam ? 9'd255 : 9'(OBJ_BUILD_LINE)) && hcount == 9'd0 && build_armed) begin
                 copy_start <= 1'b1; build_armed <= 1'b0;
             end
-            if (vcount != 9'(OBJ_BUILD_LINE)) build_armed <= 1'b1;
+            if (vcount != (metam ? 9'd255 : 9'(OBJ_BUILD_LINE))) build_armed <= 1'b1;
         end
     end
 
     wire [3:0] tm_nonempty;
     k056832_tilemap u_tm (
         .line_nonempty(tm_nonempty), .last_mix(tm_last_mix),
-        .violent(violent), .mystic(mystic), .rom_fifth(tile_fifth), .category(tm_category),
-        .clk(clk), .reset(reset), .line_start((mystic || violent) ? early_tile_start : line_start),
-        .line((mystic || violent) ? early_tile_line : render_line), .busy(tm_busy),
+        .metam(metam),.violent(violent), .mystic(mystic), .rom_fifth(tile_fifth), .category(tm_category),
+        .clk(clk), .reset(reset), .line_start(roz_disabled ? early_tile_start : line_start),
+        .line(roz_disabled ? early_tile_line : render_line), .busy(tm_busy),
         .regs(k56regs), .colorbase(tm_colorbase),
         .vram_req(tvr_req), .vram_addr(vram_raddr), .vram_ack(tvr_ack), .vram_q(vram_q),
         .rom_req(rtile_req), .rom_addr(rtile_addr), .rom_ack(rtile_ack), .rom_q(tile_q),
-        .px((mystic || violent) ? compositor_tile_x : px), .pix(tm_pen), .opaque(tm_opq), .unsupported(tm_unsup)
+        .px(roz_disabled ? compositor_tile_x : px), .pix(tm_pen), .opaque(tm_opq), .unsupported(tm_unsup)
     );
     ram_arb2 #(.AW(16), .DW(16)) u_vram_arb (
         .clk(clk), .reset(reset),
@@ -398,7 +425,46 @@ module gaia_core #(
         .c1_req(ctrom_req), .c1_addr(ctrom_addr), .c1_ack(ctrom_ack),
         .m_req(tile_req), .m_addr(tile_addr), .m_ack(tile_ack), .m_q(tile_q), .q()
     );
-    k053936_roz u_roz (
+    wire aux_cache_we,aux_line_we;
+    wire [12:0] aux_cache_wa,aux_cache_ra;
+    wire [15:0] aux_cache_wdata,aux_cache_q;
+    wire [11:0] aux_line_wa,aux_line_ra,aux_line_wdata,aux_line_q;
+    wire f_we,c_we,group_we,road_line_we;
+    wire[10:0]f_wa,f_ra;wire[15:0]f_wdata,f_q;
+    wire[8:0]c_wa,c_ra,group_wa,group_ra;
+    wire[52:0]c_wdata,c_q;wire[79:0]group_wdata,group_q;
+    wire[11:0]road_line_wa,road_line_ra;wire[8:0]road_line_wdata,road_line_q;
+    wire lvc_busy,lvc_row_busy,lvc_opq;wire[10:0]lvc_pen;
+    // Gaia and road are exclusive owners of the same sixteen M10K banks.
+    pregx_video_ram u_aux_ram(
+        .clk(clk),.metam(metam),
+        .g_we(aux_cache_we),.g_wa(aux_cache_wa),.g_ra(aux_cache_ra),
+        .g_wdata(aux_cache_wdata),.g_q(aux_cache_q),
+        .f_we(f_we),.f_wa(f_wa),.f_ra(f_ra),.f_wdata(f_wdata),.f_q(f_q),
+        .c_we(c_we),.c_wa(c_wa),.c_ra(c_ra),.c_wdata(c_wdata),.c_q(c_q),
+        .cache_we(group_we),.cache_wa(group_wa),.cache_ra(group_ra),.cache_wdata(group_wdata),.cache_q(group_q),
+        .g_lb_we(aux_line_we),.g_lb_wa(aux_line_wa),.g_lb_ra(aux_line_ra),
+        .g_lb_wdata(aux_line_wdata),.g_lb_q(aux_line_q),
+        .r_lb_we(road_line_we),.r_lb_wa(road_line_wa),.r_lb_ra(road_line_ra),.r_lb_wdata(road_line_wdata),.r_lb_q(road_line_q)
+    );
+    k053250_lvc #(.RUN_AHEAD(1'b1),.EXTERNAL_VIDEO(1'b1),.EXTERNAL_STATE(1'b1),.COMPOSITOR_READ(1'b1)) u_lvc(
+        .clk(clk),.reset(reset || !metam),.regs(k50regs),
+        .cpu_we(1'b0),.cpu_addr(13'd0),.cpu_be(2'd0),.cpu_wdata(16'd0),.cpu_rq(),.dma_busy(),
+        .frame_tick(road_frame_tick),.latch(copy_start && metam),
+        .line_start(line_start && metam),.line(render_line),.busy(lvc_busy),.row_busy(lvc_row_busy),
+        .rom_req(rlrom_req),.rom_addr(rlrom_addr),.rom_ack(rlrom_ack),.rom_q(lvc_q),
+        .palbase(k55regs[28]),.px(compositor_tile_x),.pix(lvc_pen),.opaque(lvc_opq),
+        .external_dma_busy(road_dma_busy),.snapshot_allowed(road_snapshot_allowed),.snapshot_begin(road_snapshot_begin),
+        .snapshot_active(road_snapshot_active),.snapshot_req(road_snapshot_req),.snapshot_addr(road_snapshot_addr),.snapshot_ack(road_snapshot_ack),.snapshot_q(road_snapshot_q),
+        .f_we(f_we),.f_wa(f_wa),.f_ra(f_ra),.f_wdata(f_wdata),.f_q(f_q),
+        .c_we(c_we),.c_wa(c_wa),.c_ra(c_ra),.c_wdata(c_wdata),.c_q(c_q),
+        .group_we(group_we),.group_wa(group_wa),.group_ra(group_ra),.group_wdata(group_wdata),.group_q(group_q),
+        .line_we(road_line_we),.line_wa(road_line_wa),.line_ra(road_line_ra),.line_wdata(road_line_wdata),.line_q(road_line_q));
+    k053936_roz #(.EXTERNAL_RAM(1'b1)) u_roz (
+        .cache_we(aux_cache_we),.cache_wa(aux_cache_wa),.cache_ra(aux_cache_ra),
+        .cache_wdata(aux_cache_wdata),.cache_q(aux_cache_q),
+        .line_we(aux_line_we),.line_wa(aux_line_wa),.line_ra(aux_line_ra),
+        .line_wdata(aux_line_wdata),.line_q(aux_line_q),
         .clk(clk), .reset(reset || roz_disabled), .prestart(prestart && !roz_disabled), .line_start(line_start && !roz_disabled), .line(render_line), .busy(roz_busy), .lead(roz_lead),
         .ctrl(rozctrl), .clip(rozclip), .roz_enable(roz_enable), .palbase(roz_palbase),
         .map_req(rmap_req), .map_addr(rmap_addr), .map_ack(rmap_ack), .map_q(map_q),
@@ -454,8 +520,8 @@ module gaia_core #(
     assign zoom_addr = ol_busy ? ol_zoom_addr : dr_zoom_addr;
     k053247_objlist #(.INTRO_COMPAT(MYSTIC_INTRO_COMPAT)) u_ol (
         .intro_postportrait(mystic && k55regs[13]==8'h50 && k55regs[14]==8'h90),
-        .violent(violent), .mystic(mystic),
-        .stream_enable(mystic || violent),.shdprisel(k55regs[41][5:0]),
+        .metam(metam),.violent(violent), .mystic(mystic),
+        .stream_enable(roz_disabled),.shdprisel(k55regs[41][5:0]),
         .clk(clk), .reset(reset), .start(obj_build), .done(ol_done), .busy(ol_busy),
         .opset(opset), .objset1(objset1), .shadowon(shadowon), .shdpri(shdpri), .k46_offy(k46offy),
         .zoom_addr(ol_zoom_addr), .zoom_q(zoom_q), .yr_addr(yr_addr), .yr_q(yr_q),
@@ -467,17 +533,17 @@ module gaia_core #(
         .clk(clk), .zoom_addr(zoom_addr), .zoom_q(zoom_q), .recip_addr(recip_addr), .recip_q(recip_q)
     );
     k053247_draw u_dr (
-        .violent(violent), .mystic(mystic), .rom_fifth(spr_fifth), .out_effect(spr_effect),
+        .metam(metam),.violent(violent), .mystic(mystic), .rom_fifth(spr_fifth), .out_effect(spr_effect),
         .stream_enable(1'b1),.order_valid(stream_order_valid),.order_priority(stream_order_priority),
         .order_deferred(stream_order_deferred),.order_ready(stream_order_ready),
         .fragment_valid(stream_valid),.fragment_ready(stream_ready),.fragment_x(stream_x),
         .fragment_pen(stream_pen),.fragment_level(stream_level),.fragment_shadow(stream_shadow),
         .fragment_table(stream_table),.fragment_condition(stream_condition),
         .fragment_z(stream_z),.fragment_pri(stream_pri),
-        .alpha1((mystic || violent) ? alpha_level(2'd1) : 10'd255),
-        .alpha2((mystic || violent) ? alpha_level(2'd2) : 10'd255),
-        .alpha3((mystic || violent) ? alpha_level(2'd3) : 10'd255),
-        .clk(clk), .reset(reset), .line_start(line_start), .line(render_line), .busy(dr_busy),
+        .alpha1(roz_disabled ? alpha_level(2'd1) : 10'd255),
+        .alpha2(roz_disabled ? alpha_level(2'd2) : 10'd255),
+        .alpha3(roz_disabled ? alpha_level(2'd3) : 10'd255),
+        .clk(clk), .reset(reset), .line_start(line_start), .line(metam ? render_line-9'd2 : render_line), .busy(dr_busy),
         .k46r5(objset1), .k46_offx(k46offx), .k46_offy(k46offy), .opset(opset), .colorbase(spr_colorbase),
         .list_idx(list_idx), .list_q(list_q), .list_count(list_count), .yr_addr(yr_addr), .yr_q(yr_q),
         .ram_addr(dr_sram_addr), .ram_q(scopy_q),
@@ -502,8 +568,11 @@ module gaia_core #(
         .k55regs(k55regs), .k38regs(k38regs), .roz_enable(roz_enable),
         .pal_addr(legacy_pal_addr), .pal_q(pal_q), .rgb(legacy_rgb)
     );
+    // The inactive family is already held in reset below. Forward the raster
+    // pulse directly: qualifying it again puts the static profile decode in
+    // the RGB ready -> tile/road RAM read-lookahead path.
     pregx_mystic_compositor u_mystic_rgb(
-        .clk(clk),.reset(reset || !(mystic || violent)),.violent(violent),.line_start(line_start && (mystic || violent)),
+        .clk(clk),.reset(reset || !roz_disabled),.metam(metam),.road_pen(lvc_pen),.road_opaque(lvc_opq),.road_ready(!lvc_row_busy),.violent(violent),.line_start(line_start),
         .k55regs(k55regs),.k38regs(k38regs),
         .alpha1(alpha_level(2'd1)),.alpha2(alpha_level(2'd2)),.alpha3(alpha_level(2'd3)),
         .sprite_busy(dr_busy),.order_valid(stream_order_valid),.order_priority(stream_order_priority),
@@ -515,8 +584,8 @@ module gaia_core #(
         .tile_x(compositor_tile_x),.tile_pen(tm_pen),.tile_opaque(tm_opq),.tile_nonempty(tm_nonempty),.tile_category(tm_category), .last_mix(tm_last_mix),
         .palette_addr(mystic_pal_addr),.palette_q(pal_q),.scan_x(px),.rgb(mystic_rgb),.busy(compositor_busy)
     );
-    assign pal_raddr=(mystic || violent) ? mystic_pal_addr : legacy_pal_addr;
-    assign rgb=(mystic || violent) ? mystic_rgb : legacy_rgb;
+    assign pal_raddr=roz_disabled ? mystic_pal_addr : legacy_pal_addr;
+    assign rgb=roz_disabled ? mystic_rgb : legacy_rgb;
 
     // K054321 master volume, 2^((v - 40) / 10) as Q4.12 from the table, and
     // the active bits gating the channels; saturated to 16 bits

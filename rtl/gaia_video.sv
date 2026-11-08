@@ -34,6 +34,7 @@ module gaia_video #(
     input  logic        clk,
     input  logic        reset,
     input  logic        violent,
+    input logic metam,
     input  logic        mystic,         // stable through video reset/run
     output logic        scanline_start, // all native lines, for board IRQ2/4
     input  logic        cen_pix,        // 8 MHz
@@ -60,18 +61,20 @@ module gaia_video #(
     output logic        vblank,
     output logic        vblank_rise     // one clk pulse at the start of vblank
 );
-    wire [8:0] hlast = mystic ? 9'd383 : 9'(HTOTAL-1);
-    wire [8:0] xfirst = mystic ? 9'd24 : 9'(VIS_X0);
-    wire [8:0] xend = violent ? 9'd424 : mystic ? 9'd312 : 9'(VIS_X0+VIS_W);
+    wire [8:0] hlast = (mystic || metam) ? 9'd383 : 9'(HTOTAL-1);
+    wire [8:0] xfirst = (mystic || metam) ? 9'd24 : 9'(VIS_X0);
+    wire [8:0] xend = violent ? 9'd424 : (mystic || metam) ? 9'd312 : 9'(VIS_X0+VIS_W);
     // Mystic porches follow the pinned MAME raw timing proposal. Physical
     // sync/clock/DDR and Analogizer CRT remain separately qualified.
-    wire [8:0] hsfirst = violent ? 9'd446 : mystic ? 9'd328 : 9'(HS_START);
-    wire [8:0] hsend = violent ? 9'd494 : mystic ? 9'd360 : 9'(HS_START+HS_LEN);
-    wire [8:0] vsfirst = violent ? 9'd257 : mystic ? 9'd256 : 9'(VS_START);
-    wire [8:0] vsend = mystic ? 9'd264 : 9'(VS_START+VS_LEN);
+    wire [8:0] hsfirst = violent ? 9'd446 : (mystic || metam) ? 9'd328 : 9'(HS_START);
+    wire [8:0] hsend = violent ? 9'd494 : (mystic || metam) ? 9'd360 : 9'(HS_START+HS_LEN);
+    wire [8:0] vsfirst = violent ? 9'd257 : (mystic || metam) ? 9'd256 : 9'(VS_START);
+    wire [8:0] vsend = (mystic || metam) ? 9'd264 : 9'(VS_START+VS_LEN);
+    wire[8:0]yfirst=metam ? 9'd17 : 9'(VIS_Y0);
+    wire[8:0]yend=yfirst+9'(VIS_H);
     logic in_active_x, in_active_y;
     assign in_active_x = (hcount >= xfirst) && (hcount < xend);
-    assign in_active_y = (vcount >= 9'(VIS_Y0)) && (vcount < 9'(VIS_Y0 + VIS_H));
+    assign in_active_y = (vcount >= yfirst) && (vcount < yend);
 
     logic hs_r, vs_r, de_r, hb_r, vb_r;
     logic vb_prev;
@@ -102,13 +105,13 @@ module gaia_video #(
                 nxt = (vcount == 9'(VTOTAL - 1)) ? 9'd0 : vcount + 9'd1;
                 // ... including the pulse after the last visible line, so the
                 // renderers hand over their last buffer as they do every other
-                if (nxt >= 9'(VIS_Y0) && nxt <= 9'(VIS_Y0 + VIS_H)) begin
+                if (nxt >= yfirst && nxt <= yend) begin
                     line_start  <= 1'b1;
                     render_line <= nxt;
                     overrun <= |renderers_busy;     // one pulse per overrunning line
                     overrun_src <= renderers_busy;
                 end
-                if (!mystic && !violent && vcount == 9'(VIS_Y0 - 6)) prestart <= 1'b1;
+                if (!mystic && !violent && !metam && vcount == 9'(VIS_Y0 - 6)) prestart <= 1'b1;
             end
 
             // scan-out address for this pixel

@@ -47,3 +47,11 @@ Pocket memory, cache-response, timing and line-deadline contracts are preserved.
 Original import hashes and the published derived-file hashes are recorded in
 LICENSES/DECORYAH-PROVENANCE.md and PROVENANCE.json. No SiliconRE content is
 imported by release 0.3.
+
+## Metamorphic Force0.4.0
+
+- MAME stable0.289, `f34f02505e32c1993c6a782b6814232cbfc74e36`, original EAA declarations; historical pins preserved.
+- decoryah/Arcade-MetamorphicForce_MiSTer, `879420178efb2e632e140c51311f1ffe72caaa31`: GPLv3 K053250 source, original tests, README and notices retained under `upstream/metamorphicforce-87942017/`.
+- Pocket derivative adds bounded scheduling, shared line/video RAM, explicit external road-state/PSRAM ownership and fitted timing repairs; MiSTer clocks/DDR/HPS/timing exceptions are not imported.
+- Source headers retain the development archive location as provenance; the public original-source counterpart is the `upstream/` directory above.
+- SiliconRE catalog was considered; no HDL or schematics imported from it.

@@ -1,3 +1,5 @@
+// Metamorphic scroll/flip adaptation from decoryah/Arcade-MetamorphicForce_MiSTer
+// 879420178efb2e632e140c51311f1ffe72caaa31, Copyright2026 decoryah, GPL-3.0.
 //------------------------------------------------------------------------------
 // K056832 tilemap layers for Gaiapolis (Konami pre-GX / GX123).
 //
@@ -37,6 +39,7 @@ module k056832_tilemap #(
     input  logic        clk,
     input  logic        reset,
     input  logic        violent,
+    input logic metam,
     input  logic        mystic,       // stable profile: five planes,288px at x24
 
     // Begin rendering the line that is displayed next. `line` is its raster y.
@@ -76,8 +79,11 @@ module k056832_tilemap #(
 );
     // Profile settles long before any line is released. Keep the render
     // decoders local instead of driving them through the board-wide net.
-    (* preserve, dont_merge *) logic render_mystic, render_violent;
-    always_ff @(posedge clk) begin render_mystic<=mystic;render_violent<=violent;end
+    (* preserve, dont_merge *) logic render_mystic, render_violent,render_metam,render_family;
+    always_ff @(posedge clk) begin
+        render_mystic<=mystic;render_violent<=violent;render_metam<=metam;
+        render_family<=mystic || violent || metam;
+    end
     // ------------------------------------------------------------- registers
     // flip/palette bit split, k056832_device::get_tile_info
     wire [1:0] fbits = regs[3][7:6];
@@ -98,19 +104,24 @@ module k056832_tilemap #(
     localparam logic signed [9:0] OFFS_Y [4] = '{ -10'sd1, 10'sd0, 10'sd0, 10'sd0 };
 
     localparam logic signed [9:0] MW_OFFS_X [4] = '{-10'sd5,-10'sd3,-10'sd1,10'sd0};
-    wire [LB_AW:0] render_width = render_violent ? (LB_AW+1)'(384) : render_mystic ? (LB_AW+1)'(288) : (LB_AW+1)'(VIS_W);
-    wire [11:0] visible_x0 = render_mystic ? 12'd24 : 12'(VIS_X0);
+    wire [LB_AW:0] render_width = render_metam ? (LB_AW+1)'(288) : render_violent ? (LB_AW+1)'(384) : render_mystic ? (LB_AW+1)'(288) : (LB_AW+1)'(VIS_W);
+    wire [11:0] visible_x0 = (render_mystic || render_metam) ? 12'd24 : 12'(VIS_X0);
     localparam logic signed [9:0] VS_OFFS_X [4] = '{-10'sd1,10'sd1,10'sd3,10'sd4};
     // Fold the profile/layer constants before the live scroll adder.
     localparam logic [11:0] GX_X_ORIGIN [4] = '{12'(VIS_X0 - int'(OFFS_X[0])), 12'(VIS_X0 - int'(OFFS_X[1])), 12'(VIS_X0 - int'(OFFS_X[2])), 12'(VIS_X0 - int'(OFFS_X[3]))};
     localparam logic [11:0] MW_X_ORIGIN [4] = '{12'(24 - int'(MW_OFFS_X[0])), 12'(24 - int'(MW_OFFS_X[1])), 12'(24 - int'(MW_OFFS_X[2])), 12'(24 - int'(MW_OFFS_X[3]))};
     localparam logic [11:0] VS_X_ORIGIN [4] = '{12'(VIS_X0 - int'(VS_OFFS_X[0])), 12'(VIS_X0 - int'(VS_OFFS_X[1])), 12'(VIS_X0 - int'(VS_OFFS_X[2])), 12'(VIS_X0 - int'(VS_OFFS_X[3]))};
     localparam logic [11:0] MW_VS_X_ORIGIN [4] = '{12'(24 - int'(VS_OFFS_X[0])), 12'(24 - int'(VS_OFFS_X[1])), 12'(24 - int'(VS_OFFS_X[2])), 12'(24 - int'(VS_OFFS_X[3]))};
-    wire [11:0] layer_x_origin = render_violent
+    localparam logic signed[9:0] M4_OFFS_X[4]='{10'sd2,10'sd4,10'sd6,10'sd7};
+    localparam logic[11:0] M4_X_ORIGIN[4]='{12'd22,12'd20,12'd18,12'd17};
+    wire[8:0]line_a=render_metam ? line-9'd2 : line;
+    wire flip_y=render_metam && regs[0][5];
+    wire signed[10:0]corr_y=regs[30][10:0];
+    wire [11:0] layer_x_origin = render_metam ? M4_X_ORIGIN[cur_l] : render_violent
         ? (render_mystic ? MW_VS_X_ORIGIN[cur_l] : VS_X_ORIGIN[cur_l])
         : (render_mystic ? MW_X_ORIGIN[cur_l] : GX_X_ORIGIN[cur_l]);
-    wire signed [9:0] layer_offs_x = render_violent ? VS_OFFS_X[cur_l] : render_mystic ? MW_OFFS_X[cur_l] : OFFS_X[cur_l];
-    wire signed [9:0] layer_offs_y = (render_mystic || render_violent) ? 10'sd0 : OFFS_Y[cur_l];
+    wire signed [9:0] layer_offs_x = render_metam ? M4_OFFS_X[cur_l] : render_violent ? VS_OFFS_X[cur_l] : render_mystic ? MW_OFFS_X[cur_l] : OFFS_X[cur_l];
+    wire signed [9:0] layer_offs_y = render_family ? 10'sd0 : OFFS_Y[cur_l];
 
     wire flip_global = |regs[0][5:4];
 
@@ -179,7 +190,6 @@ module k056832_tilemap #(
     (* ramstyle = "logic" *) logic [18:0] row_cache_tag [ROW_CACHE_ENTRIES];
     (* ramstyle = "logic" *) logic [31:0] row_cache_data [ROW_CACHE_ENTRIES];
     (* ramstyle = "logic" *) logic [7:0] row_cache_fifth [ROW_CACHE_ENTRIES];
-    wire [18:0] requested_row = {code,3'd0} + {16'd0,attr_fy};
     logic [ROW_CACHE_ENTRIES-1:0] row_cache_hits;
     logic [31:0] row_cache_selected;
     logic [7:0] row_cache_selected_fifth;
@@ -187,7 +197,10 @@ module k056832_tilemap #(
         row_cache_hits='0;
         row_cache_selected='0;row_cache_selected_fifth='0;
         for(int c=0;c<ROW_CACHE_ENTRIES;c++) begin
-            row_cache_hits[c]=row_cache_valid[c] && row_cache_tag[c]==requested_row;
+            // Compare both possible Y rows in parallel with the code. Keep
+            // the late layer/attribute flip selector outside the 19-bit match.
+            row_cache_hits[c]=row_cache_valid[c] && row_cache_tag[c][18:3]==code &&
+                (attr_yflip ? row_cache_tag[c][2:0]==~vy[2:0] : row_cache_tag[c][2:0]==vy[2:0]);
             row_cache_selected |= row_cache_data[c] & {32{row_cache_hits[c]}};
             row_cache_selected_fifth |= row_cache_fifth[c] & {8{row_cache_hits[c]}};
         end
@@ -213,8 +226,8 @@ module k056832_tilemap #(
     wire [1:0] colspan  = regs[lx][1:0];
 
     // page index inside the 4x4 grid, wrapping on the layer's span
-    wire [1:0] page_r = rowstart + vy[10:9] + {1'b0, vy[8]};
-    wire [1:0] page_c = colstart + fvx[11:10] + {1'b0, fvx[9]};
+    wire [1:0] page_r = rowstart + (render_metam ? vy[9:8] : (vy[10:9] + {1'b0,vy[8]}));
+    wire [1:0] page_c = colstart + (render_metam ? fvx[10:9] : (fvx[11:10] + {1'b0,fvx[9]}));
     wire [3:0] page   = {page_r, page_c};
     // word address: page * 4096 + (ty*64 + tx) * 2
     wire [15:0] vram_base = {page, vy[7:3], fvx[8:3], 1'b0};
@@ -231,7 +244,8 @@ module k056832_tilemap #(
     wire [5:0] attr_col6 = (attr[5:0] & sm_palm1) | (attr_shifted[5:0] & sm_palm2);
     /* verilator lint_on UNUSEDSIGNAL */
     wire [3:0] attr_color = render_mystic ? attr_col6[4:1] : attr_col6[5:2];   // the game's 4bpp tile callback drops bits 1:0
-    wire [2:0] attr_fy   = (attr[flips4 + 4'd1] && (!(render_mystic || render_violent) || regs[1][fliprsel+4'd1])) ? ~vy[2:0] : vy[2:0];
+    wire attr_yflip=attr[flips4 + 4'd1] && (!render_family || regs[1][fliprsel+4'd1]);
+    wire [2:0] attr_fy=attr_yflip ? ~vy[2:0] : vy[2:0];
 
     wire [2:0] fx = flipx ? ~vx[2:0] : vx[2:0];
     wire [3:0] pixel = rowdata[31 - {fx, 2'b00} -: 4];
@@ -249,13 +263,13 @@ module k056832_tilemap #(
     wire  [1:0] scrollmode = regs[5][smsel +: 2];
     // Pinned current K056832 uses XY for modes 1/3. Preserve the Gaia
     // historical interpretation; Mystic captures exercise mode 1 directly.
-    wire xy_mode = (scrollmode == 2'd3) || ((render_mystic || render_violent) && scrollmode == 2'd1);
+    wire xy_mode = (scrollmode == 2'd3) || (render_family && scrollmode == 2'd1);
     wire  [3:0] scrollbank = {regs[24][4:3], regs[24][1:0]};
     // word index inside the scroll page: layer*1024, then line*2+1 (mode 0)
     // or (line/8)*16+1 (mode 2)
-    wire [11:0] ls_word = {cur_l, 10'd0}
+    wire [11:0] old_ls_word = {cur_l, 10'd0}
                         + (scrollmode[1] ? {2'd0, line[8:3], 4'd1} : {2'd0, line, 1'b1});
-    wire [15:0] scroll_vram_addr = {scrollbank, ls_word};
+    wire [15:0] scroll_vram_addr = {scrollbank, render_metam ? m4_ls_word : old_ls_word};
     logic [15:0] scroll_word;
     wire  [15:0] scroll_reg = xy_mode ? regs[sx_i] : scroll_word;
     /* verilator lint_off UNUSEDSIGNAL */
@@ -263,13 +277,41 @@ module k056832_tilemap #(
     wire [4:0] sy_i = 5'd16 + {3'd0, cur_l};
     wire signed [16:0] scroll_x = $signed({scroll_reg[15], scroll_reg})
                                 - $signed({{7{layer_offs_x[9]}},layer_offs_x});
-    wire signed [16:0] scroll_y = $signed({regs[sy_i][15], regs[sy_i]})
-                                - $signed({{7{layer_offs_y[9]}},layer_offs_y});
+    // Metam's flip correction and the legacy layer offset are mutually
+    // exclusive: layer_offs_y is zero whenever flip_y can be set. Select the
+    // correction before the live register adder, including parameter overrides.
+    wire signed [16:0] y_adjust=flip_y ? 17'($signed(corr_y)) :
+        -$signed({{7{layer_offs_y[9]}},layer_offs_y});
+    wire signed [16:0] scroll_y=$signed({regs[sy_i][15],regs[sy_i]})+y_adjust;
     wire [11:0] wrap_x = ({10'd0, colspan} + 12'd1) << 9;
     wire [10:0] wrap_y = ({ 9'd0, rowspan} + 11'd1) << 8;
     /* verilator lint_on UNUSEDSIGNAL */
     wire [11:0] vx0 = scroll_reg[11:0] + layer_x_origin;
-    wire [10:0] vy0 = $unsigned(scroll_y[10:0]) + {2'd0, line};
+    wire[8:0]ls_sum=scroll_y[8:0]+line_a;
+    wire[9:0]ls_n0={ls_sum,1'b1},ls_n2={ls_sum[8:3],3'd0,1'b1};
+    wire[8:0]ls_f0v=9'd255-line_a;
+    wire[9:0]ls_f0={ls_f0v,1'b1};
+    wire[9:0]ls_sum2={1'b0,line_a}+{7'd0,scroll_y[2:0]};
+    wire[9:0]ls_f2=(10'd496-{ls_sum2[8:3],4'd0})|10'd1;
+    wire[8:0]ls_rho=scroll_y[8:0]-9'd1-line_a;
+    wire[9:0]ls_fm0={ls_rho,1'b1},ls_fm2={ls_rho[8:3],3'd0,1'b1};
+    wire[9:0]ls_idx=flip_y ? (rowspan!=0 ? (scrollmode[1] ? ls_fm2 : ls_fm0) : (scrollmode[1] ? ls_f2 : ls_f0)) : (scrollmode[1] ? ls_n2 : ls_n0);
+    wire[11:0]m4_ls_word={cur_l,10'd0}+{2'd0,ls_idx};
+    // Only low11bits reach the page mask. Compress the three operands before
+    // propagating carry: the late layer mux must not traverse scrollY and
+    // raster adders in series. Complement implements -line-1 exactly modulo
+    // 2048; the separate low-byte flip expression remains modulo256.
+    function automatic [10:0] sum_y3(input logic [10:0] a,b,c);
+        logic [10:0] saved_sum,saved_carry;
+        saved_sum=a^b^c;
+        saved_carry=((a&b)|(a&c)|(b&c))<<1;
+        return saved_sum+saved_carry;
+    endfunction
+    wire [10:0] y_register=regs[sy_i][10:0];
+    wire [10:0] raster_y=flip_y ? ~{2'd0,line_a} : {2'd0,line_a};
+    wire [10:0] y_sum=sum_y3(y_register,y_adjust[10:0],raster_y);
+    wire [7:0] u_f=8'(sum_y3(y_register,y_adjust[10:0],11'd253-{2'd0,line_a}));
+    wire [10:0] vy0=flip_y ? {1'b0,y_sum[9:8],u_f} : y_sum;
 
     // pixels the group at fvx contributes: to the end of its tile, or of the line
     wire [LB_AW:0] left    = render_width - fpx;
@@ -318,7 +360,7 @@ module k056832_tilemap #(
                         busy  <= 1'b1;
                         cur_l <= 2'd0;
                         st    <= S_SETUP;
-                        if (flip_global) unsupported <= 1'b1;
+                        if (render_metam ? regs[0][4] : flip_global) unsupported <= 1'b1;
                     end
                 end
 
@@ -358,9 +400,16 @@ module k056832_tilemap #(
                             code_v <= vram_q; vram_req <= 1'b0; npx_v <= npx_now; vst <= V_HOLD;
                         end
                         V_HOLD: if (v_to_r) begin
+                            // fpx starts at0 and advances by min(width-fpx,
+                            // to_tile), so it never exceeds width. Detect the
+                            // final group before the add, rather than putting
+                            // another carry chain/comparator in its control path.
+                            // synthesis translate_off
+                            assert(fpx<=render_width) else $fatal(1,"Tile group passed render width");
+                            // synthesis translate_on
                             fpx <= fpx_next;
                             fvx <= ((fvx | 12'd7) + 12'd1) & (wrap_x - 12'd1);
-                            if (fpx_next >= render_width) begin v_done <= 1'b1; vst <= V_IDLE; end
+                            if (left <= (LB_AW+1)'(to_tile)) begin v_done <= 1'b1; vst <= V_IDLE; end
                             else vst <= V_ATTR;
                         end
                         default: ;
@@ -375,13 +424,13 @@ module k056832_tilemap #(
                             if (render_violent && attr[1:0]!=2'd0) last_mix<=attr[1:0];
                             category_r <= render_violent ? attr[1:0] : render_mystic ? attr[3:2] : 2'd0;
                             rom_addr <= {code, 3'd0} + {16'd0, attr_fy};
-                            if(render_violent && (|row_cache_hits)) begin
+                            if((render_violent || render_metam) && (|row_cache_hits)) begin
                                 rowdata_r<=row_cache_selected;fifth_r<=row_cache_selected_fifth;
                                 rom_req<=1'b0;rst<=R_HOLD;
                             end else begin rom_req<=1'b1;rst<=R_WAIT;end
                         end
                         R_WAIT: if (rom_ack) begin
-                            if(render_violent) begin
+                            if(render_violent || render_metam) begin
                                 row_cache_valid[row_cache_replace]<=1'b1;
                                 row_cache_tag[row_cache_replace]<=rom_addr;
                                 row_cache_data[row_cache_replace]<=rom_q;

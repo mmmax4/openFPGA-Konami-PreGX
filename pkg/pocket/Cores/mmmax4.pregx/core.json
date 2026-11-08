@@ -6,11 +6,11 @@
         "pregx"
       ],
       "shortname": "pregx",
-      "description": "Konami pre-GX: Gaiapolis / Mystic Warriors / Violent Storm",
+      "description": "Konami pre-GX: Gaiapolis / Mystic Warriors / Violent Storm / Metamorphic Force",
       "author": "mmmax4",
       "url": "https://github.com/mmmax4/openFPGA-Konami-PreGX",
-      "version": "0.3",
-      "date_release": "2026-11-06"
+      "version": "0.4.0",
+      "date_release": "2026-11-08"
     },
     "framework": {
       "target_product": "Analogue Pocket",
